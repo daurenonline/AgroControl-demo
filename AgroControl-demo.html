@@ -159,6 +159,10 @@
   <div id="stage2" style="display:none">
     <div class="notice"><span><b>Кабинет оценки — анкета по открытой методике 5 C's of Credit.</b> Заполняется при <b>онбординге</b> и пересматривается в мониторинге. Оценка AgroControl, не рейтинг агентства.</span></div>
     <section class="panel">
+      <div class="ph"><div><h2 class="pt">Стандарт методики</h2><span class="s">Выберите готовый стандарт или задайте свои веса</span></div></div>
+      <div id="cabSettings"></div>
+    </section>
+    <section class="panel">
       <div class="ph"><div><h2 class="pt">Заявка на оценку</h2><span class="s" id="cabSub"></span></div>
         <span style="display:flex;gap:6px;flex-wrap:wrap">
           <select id="evalSel" onchange="renderEval()" style="min-width:280px"></select>
@@ -575,7 +579,27 @@ function sHi(v,b){return v>=b[0]?100:v>=b[1]?75:v>=b[2]?50:v>=b[3]?25:0;}
 function sLo(v,b){return v<=b[0]?100:v<=b[1]?75:v<=b[2]?50:v<=b[3]?25:0;}
 const LIMITPCT={'AC-A':1,'AC-B':0.9,'AC-C':0.7,'AC-D':0.5,'AC-E':0.3,'AC-F':0.1,'AC-G':0};
 /* веса 5 C's под тонкий файл и слабую отчётность (KZ, агро): поведение, обеспечение, условия важнее капитала */
-const W5C={C1:25,C2:25,C3:10,C4:20,C5:20};
+/* Стандарты методики (пресеты весов 5 C's). Всегда доступен выбор стандарта. */
+const PRESETS={
+ "5 C's — агро/тонкий файл":{C1:25,C2:25,C3:10,C4:20,C5:20},
+ "Равные веса (baseline)":{C1:20,C2:20,C3:20,C4:20,C5:20},
+ "Осторожный (упор на поведение)":{C1:35,C2:25,C3:5,C4:20,C5:15},
+ "Обеспечение-ориентированный":{C1:15,C2:20,C3:15,C4:35,C5:15}
+};
+let SETTINGS=(function(){try{const r=localStorage.getItem('agrocontrol-settings');if(r)return JSON.parse(r);}catch(e){} return {preset:"5 C's — агро/тонкий файл",w:{...PRESETS["5 C's — агро/тонкий файл"]}};})();
+function saveSettings(){try{localStorage.setItem('agrocontrol-settings',JSON.stringify(SETTINGS));}catch(e){}}
+function onPreset(v){if(v!=='Свой'){SETTINGS.preset=v;SETTINGS.w={...PRESETS[v]};}else{SETTINGS.preset='Свой';}saveSettings();renderEval();}
+function onWeight(k,v){SETTINGS.w[k]=+v||0;SETTINGS.preset='Свой';saveSettings();renderEval();}
+function renderSettings(){const el=$('cabSettings');if(!el)return;const w=SETTINGS.w;const sum=w.C1+w.C2+w.C3+w.C4+w.C5;
+  const names={C1:'Character',C2:'Capacity',C3:'Capital',C4:'Collateral',C5:'Conditions'};
+  const opts=Object.keys(PRESETS).concat(['Свой']);
+  el.innerHTML=`<div class="toolbar"><label style="font-size:12px;color:var(--muted)">Стандарт:</label>
+    <select onchange="onPreset(this.value)">${opts.map(o=>`<option ${SETTINGS.preset===o?'selected':''}>${o}</option>`).join('')}</select>
+    <span class="pill ${sum===100?'g':'y'}">сумма весов: ${sum}%</span></div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">${['C1','C2','C3','C4','C5'].map(k=>`<div><div style="font-size:11px;color:var(--muted)">${names[k]}</div><input type="number" value="${w[k]}" onchange="onWeight('${k}',this.value)" style="width:100%"></div>`).join('')}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:6px">Веса нормируются автоматически. Стандарт по умолчанию — 5 C's под тонкий файл/слабую отчётность.</div>`;
+}
+
 const REGION_RISK={'Акмолинская':85,'Костанайская':85,'Северо-Казахстанская':90,'Карагандинская':65,'Восточно-Казахстанская':65,'Алматинская':70,'Жамбылская':60,'Туркестанская':55,'Актюбинская':55,'Западно-Казахстанская':60,'Павлодарская':70,'Кызылординская':50};
 const COLL=[4,12,20];
 function q5c(c,f){
@@ -588,7 +612,8 @@ function q5c(c,f){
   const C4=Math.round(((q.colltype||70)+(q.collcov||70))/2);
   const regionS=(REGION_RISK[c.region]||65);
   const C5=Math.round((regionS+(q.crop||70)+(q.wx||70))/3);
-  const total=Math.round((C1*W5C.C1+C2*W5C.C2+C3*W5C.C3+C4*W5C.C4+C5*W5C.C5)/100);
+  const W=SETTINGS.w, sw=(W.C1+W.C2+W.C3+W.C4+W.C5)||100;
+  const total=Math.round((C1*W.C1+C2*W.C2+C3*W.C3+C4*W.C4+C5*W.C5)/sw);
   return {total,cls:classByScore(total),cs:{C1,C2,C3,C4,C5}};
 }
 function statusOf(c){const f=ensureFin(c);if(!f.loaded)return 'new';return colorOf(c)==='red'?'watch':'review';}
@@ -599,6 +624,7 @@ function onFin(id,k,v){const f=ensureFin(C(id));f[k]=+v||0;f.loaded=true;renderE
 function onQ(id,k,v){const f=ensureFin(C(id));f.q[k]=+v;f.loaded=true;renderEval();}
 function cmapv(c){const m={green:90,yellow:65,orange:40,red:15};return m[colorOf(c)]||40;}
 function renderEval(){
+  renderSettings();
   const sel=$('evalSel');if(!sel)return;const id=+sel.value||DB.clients[0].id;const c=C(id);const f=ensureFin(c);const q=f.q;const r=q5c(c,f);
   const liq=f.cl?f.ca/f.cl:0,aut=f.assets?f.equity/f.assets:0,da=f.assets?f.debt/f.assets:1,cov=f.debt?f.ocf/f.debt:0,ros=f.rev?f.np/f.rev:0;
   const A=(l,v)=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px dashed #eef1f4"><span>${l} <span style="color:var(--muted);font-size:10px">авто</span></span><b>${v}/100</b></div>`;
@@ -607,19 +633,19 @@ function renderEval(){
   const oTerm=[[40,'<1 года'],[70,'1–3 года'],[100,'>3 лет']],oSeason=[[40,'Высокая'],[70,'Умеренная'],[100,'Низкая']],oDyn=[[40,'Снижается'],[70,'Стабилен'],[100,'Растёт']],oCT=[[30,'Нет'],[70,'Земля/техника'],[100,'Залог+гарантия']],oCC=[[30,'<50%'],[70,'50–100%'],[100,'>100%']],oCrop=[[40,'Монокультура'],[70,'2–3 культуры'],[100,'Диверсификация']],oWx=[[40,'Высокий'],[70,'Средний'],[100,'Низкий/страховка']];
   $('cabSub').textContent=statusLbl(statusOf(c))+' · '+c.name+' · БИН '+c.bin+(f.loaded?'':' · тонкий файл (без отчётности)');
   $('cabForm').innerHTML=
-    card(1,'Character',W5C.C1,'Платёжная дисциплина, реестры', A('DPD (просрочка)',cmapv(c))+A('Кредитное бюро',(/негатив|ликвидац/i.test(c.bureau||'')?30:70))+S('term','Срок сотрудничества',oTerm), r.cs.C1)
-    +card(2,'Capacity',W5C.C2,'Способность платить', A('Покрытие долга ОДДС',sHi(cov,[0.5,0.3,0.15,0.05]))+A('Рентабельность (ЧП/выручка)',sHi(ros,[0.1,0.06,0.03,0.01]))+S('season','Сезонность',oSeason), r.cs.C2)
-    +card(3,'Capital',W5C.C3,'Капитал (данные часто неполные)', A('Автономия (капитал/активы)',sHi(aut,[0.5,0.35,0.25,0.15]))+A('Долг/активы',sLo(da,[0.3,0.5,0.65,0.8]))+S('capdyn','Динамика капитала',oDyn), r.cs.C3)
-    +card(4,'Collateral',W5C.C4,'Обеспечение', S('colltype','Тип обеспечения',oCT)+S('collcov','Покрытие долга обеспечением',oCC), r.cs.C4)
-    +card(5,'Conditions',W5C.C5,'Условия (регион, культура, погода)', A('Регион',(REGION_RISK[c.region]||65))+S('crop','Культуры',oCrop)+S('wx','Погодный/ценовой риск',oWx), r.cs.C5);
+    card(1,'Character',SETTINGS.w.C1,'Платёжная дисциплина, реестры', A('DPD (просрочка)',cmapv(c))+A('Кредитное бюро',(/негатив|ликвидац/i.test(c.bureau||'')?30:70))+S('term','Срок сотрудничества',oTerm), r.cs.C1)
+    +card(2,'Capacity',SETTINGS.w.C2,'Способность платить', A('Покрытие долга ОДДС',sHi(cov,[0.5,0.3,0.15,0.05]))+A('Рентабельность (ЧП/выручка)',sHi(ros,[0.1,0.06,0.03,0.01]))+S('season','Сезонность',oSeason), r.cs.C2)
+    +card(3,'Capital',SETTINGS.w.C3,'Капитал (данные часто неполные)', A('Автономия (капитал/активы)',sHi(aut,[0.5,0.35,0.25,0.15]))+A('Долг/активы',sLo(da,[0.3,0.5,0.65,0.8]))+S('capdyn','Динамика капитала',oDyn), r.cs.C3)
+    +card(4,'Collateral',SETTINGS.w.C4,'Обеспечение', S('colltype','Тип обеспечения',oCT)+S('collcov','Покрытие долга обеспечением',oCC), r.cs.C4)
+    +card(5,'Conditions',SETTINGS.w.C5,'Условия (регион, культура, погода)', A('Регион',(REGION_RISK[c.region]||65))+S('crop','Культуры',oCrop)+S('wx','Погодный/ценовой риск',oWx), r.cs.C5);
   const used=['term','season','capdyn','colltype','collcov','crop','wx'];let fld=0;used.forEach(k=>{if(q[k]!=null)fld++;});const pct=Math.round(fld/used.length*100);
   $('cabProgress').style.width=pct+'%';$('cabProgressTxt').textContent=pct+'%';
   const col=v=>v>=80?'var(--green)':v>=60?'var(--yellow)':v>=40?'var(--orange)':'var(--red)';
   const bar=(l,w,v)=>`<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:12px"><span>${l} <span style="color:var(--muted)">вес ${w}%</span></span><b style="color:${col(v)}">${v}/100</b></div><div class="bar"><i style="width:${v}%;background:${col(v)}"></i></div></div>`;
   const lim=Math.round(c.debt*(LIMITPCT[r.cls.c]||0));
   $('cabResult').innerHTML=`<div style="text-align:center;margin-bottom:12px"><span class="pill" style="background:${r.cls.color};color:#fff;font-size:20px;padding:8px 20px">${r.cls.c}</span><div style="font-size:12px;color:var(--muted);margin-top:6px">Итог ${r.total}/100 · 5 C's of Credit (взвешенно)</div></div>`
-    +bar('Character',W5C.C1,r.cs.C1)+bar('Capacity',W5C.C2,r.cs.C2)+bar('Capital',W5C.C3,r.cs.C3)+bar('Collateral',W5C.C4,r.cs.C4)+bar('Conditions',W5C.C5,r.cs.C5)
-    +`<div class="note">Рекомендуемый лимит отсрочки: <b>${mln(lim)}</b> (${Math.round((LIMITPCT[r.cls.c]||0)*100)}% от долга ${mln(c.debt)}). Веса под тонкий файл/слабую отчётность: Character 25 · Capacity 25 · Capital 10 · Collateral 20 · Conditions 20. Источники: 5 C's of Credit; World Bank «Agricultural Sector Risk Assessment»; CGAP/RFILC smallholder scoring.</div>`;
+    +bar('Character',SETTINGS.w.C1,r.cs.C1)+bar('Capacity',SETTINGS.w.C2,r.cs.C2)+bar('Capital',SETTINGS.w.C3,r.cs.C3)+bar('Collateral',SETTINGS.w.C4,r.cs.C4)+bar('Conditions',SETTINGS.w.C5,r.cs.C5)
+    +`<div class="note">Рекомендуемый лимит отсрочки: <b>${mln(lim)}</b> (${Math.round((LIMITPCT[r.cls.c]||0)*100)}% от долга ${mln(c.debt)}). Веса: стандарт «${SETTINGS.preset}» (Character ${SETTINGS.w.C1} · Capacity ${SETTINGS.w.C2} · Capital ${SETTINGS.w.C3} · Collateral ${SETTINGS.w.C4} · Conditions ${SETTINGS.w.C5}). Источники: 5 C's of Credit; World Bank «Agricultural Sector Risk Assessment»; CGAP/RFILC smallholder scoring.</div>`;
 }
 function fakeUpload(){const c=C(+$('evalSel').value)||DB.clients[0];const f=ensureFin(c);const s=(c.id*9301)%7;['rev','ocf','assets','equity','debt','ca','cl','np'].forEach(k=>{f[k]=Math.round(f[k]*(1+((s-3)/50))/1e6)*1e6;});f.loaded=true;renderEval();renderRiskList();alert('Отчётность загружена (демо): Баланс, ОДДС, ОПиУ.');}
 function cabMemoFill(){const id=+$('evalSel').value;const c=C(id);const f=ensureFin(c);const r=q5c(c,f);const lim=Math.round(c.debt*(LIMITPCT[r.cls.c]||0));const weak=[['Character',r.cs.C1],['Capacity',r.cs.C2],['Capital',r.cs.C3],['Collateral',r.cs.C4],['Conditions',r.cs.C5]].filter(x=>x[1]<60).map(x=>x[0]).join(', ')||'нет';$('cabMemo').value=`Оценка AgroControl от ${today()} по методике 5 C's of Credit (взвешенно).\nИтог: ${r.total}/100, класс ${r.cls.c}.\nСлабые факторы: ${weak}.\nРекомендуемый лимит отсрочки: ${mln(lim)}.\nУсловия: контроль DPD, пересмотр по событию.`;}
