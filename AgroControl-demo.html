@@ -120,7 +120,7 @@
   </section>
 
   <!-- WORK QUEUE + CONCENTRATION -->
-  <div class="two">
+  <div class="two" id="monExtra1">
     <section class="panel" id="queuePanel">
       <div class="ph"><div><h2 class="pt">Что делать сегодня (очередь действий)</h2><span class="s" id="queueSub"></span></div></div>
       <div id="queueBody"></div>
@@ -131,7 +131,7 @@
     </section>
   </div>
 
-  <section class="panel">
+  <section class="panel" id="monExtra2">
     <div class="ph"><div><h2 class="pt">Aging: дебиторка по сроку просрочки</h2><span class="s">Сколько денег в каком «ведре»</span></div></div>
     <div id="agingBody"></div>
   </section>
@@ -682,7 +682,7 @@ const ACTION={red:'Позвонить + юридическая проверка'
 function renderQueue(){ const list=scopedClients().filter(c=>['red','orange','yellow'].includes(colorOf(c))).sort((a,b)=>severity(a)-severity(b)||b.debt-a.debt); $('queueSub').textContent=`${list.length} компаний требуют действия`+(role==='manager'&&manager?` · ${esc(manager)}`:''); const show=list.slice(0,25); $('queueBody').innerHTML=show.map(c=>{const col=colorOf(c);return `<div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;padding:7px 0;border-bottom:1px solid #eef1f4"><div><span class="dot ${col[0]}"></span><b style="font-size:12.5px">${esc(c.name)}</b><div style="color:var(--muted);font-size:11px">${esc(c.region)} · ${esc(c.user)} · DPD ${c.dpd||0} дн · долг ${mln(c.debt)}</div><div style="font-size:11.5px;margin-top:2px">${ACTION[col]}</div></div><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${contactButtons(c)}<button class="primary" onclick="decideClient(${c.id})" style="white-space:nowrap">В работу</button></div></div>`;}).join('')+(list.length>25?`<div style="color:var(--muted);font-size:11.5px;padding-top:6px">Показаны первые 25 из ${list.length}</div>`:''); }
 
 /* ====== NAV ====== */
-function setStage(s){if(s==='s2'&&role!=='risk')s='s1';stage=s;$('tab-s1').classList.toggle('active',s==='s1');$('tab-s2').classList.toggle('active',s==='s2');$('stage1').style.display=s==='s1'?'block':'none';$('stage2').style.display=s==='s2'?'block':'none';}
+function setStage(s){if(s==='s2'&&role!=='risk')s='s1';stage=s;$('tab-s1').classList.toggle('active',s==='s1');$('tab-s2').classList.toggle('active',s==='s2');$('stage1').style.display=s==='s1'?'block':'none';$('stage2').style.display=s==='s2'?'block':'none';['monExtra1','monExtra2'].forEach(id=>{const el=$(id);if(el)el.style.display=(s==='s1')?'':'none';});}
 function renderAll(){renderKPI();renderTable();renderCard();renderJournal();renderRisks();renderSources();renderTasks();renderRating();renderEval();renderEventsTop();renderPlan();renderQueue();renderAging();renderConc();}
 
 /* ====== INIT ====== */
