@@ -122,7 +122,7 @@
           <select id="fColor" onchange="renderTable()"><option value="all">Все цвета</option><option value="green">🟢 в срок</option><option value="yellow">🟡 ≤3 дн</option><option value="orange">🟠 4–7 дн</option><option value="red">🔴 &gt;7 дн / критично</option></select>
           <select id="fRegion" onchange="renderTable()"><option value="all">Все регионы</option></select>
         </div>
-        <div class="tbl-wrap"><table><thead><tr><th>Клиент / БИН</th><th>Регион</th><th>Долг</th><th>Срок</th><th>DPD</th><th>Статус</th><th>Отв.</th></tr></thead><tbody id="rows"></tbody></table></div>
+        <div class="tbl-wrap"><table><thead><tr><th>Клиент / БИН</th><th>Регион</th><th>Долг</th><th>Срок</th><th>DPD</th><th>Статус</th><th>Менеджер продаж</th></tr></thead><tbody id="rows"></tbody></table></div>
       </section>
       <section class="panel">
         <div class="ph"><div><h2 class="pt" id="cardTitle">Карточка контрагента</h2><span class="s" id="cardSub">Выберите клиента</span></div></div>
@@ -175,7 +175,7 @@
 
 <script>
 'use strict';
-const LSKEY='agrocontrol-demo-v5';
+const LSKEY='agrocontrol-demo-v6';
 const $=id=>document.getElementById(id);
 const money=n=>n.toLocaleString('ru-RU')+' ₸';
 const mln=n=>(n/1e6).toLocaleString('ru-RU',{maximumFractionDigits:1})+' млн ₸';
@@ -196,7 +196,7 @@ function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a
 const ROOTS=['АгроСнаб','Поле','Жасыл','Дала','АгроТрейд','Хим-Агро','Ертіс','Сарыарқа','Тұран','Асыл','Береке','Нұр','Байқоңыр','Қостанай','Ақтөбе','Оңтүстік','Шығыс','Батыс','Көктем','Күз'];
 const SUF=['Север','Юг','KZ','Агро','Химия','Ресурс','Сервис','Трейд','Плюс','Групп'];
 const REGIONS=['Акмолинская','Костанайская','Северо-Казахстанская','Карагандинская','Восточно-Казахстанская','Алматинская','Жамбылская','Туркестанская','Актюбинская','Западно-Казахстанская','Павлодарская','Кызылординская'];
-const USERS=['Юрист А. Сеитова','Риск Д. Оспанов','Юрист Ж. Кабылова','Риск Е. Мукашев'];
+const USERS=['Менеджер А. Ермеков (Акмолинская)','Менеджер Д. Смагулов (Костанай)','Менеджер Ж. Кабылов (СКО)','Менеджер Е. Мукашев (Караганда)'];
 const SRC=['КГД','АИС ОИП','Кредитное бюро','ГБД ЮЛ'];
 const EVT=['Налоговая задолженность','Исполнительное производство','Негативная информация (>90 дней)','Смена руководителя','Ограничение выписки ЭСФ','Банкротство/реабилитация'];
 
@@ -233,7 +233,7 @@ function generate(){
       events.push({id:eid++,c:i,type,src,date:prevDay(Math.floor(r()*20)),evi:evidence(type,src)});
     }
   }
-  return {version:3,clients,events,decisions:[{c:3,t:prevDay(8)+' 11:20',by:'Юрист А. Сеитова',act:'Подтверждено',reason:'Запросить график платежа'}],
+  return {version:3,clients,events,decisions:[{c:3,t:prevDay(8)+' 11:20',by:'Менеджер Ж. Кабылов (СКО)',act:'Подтверждено',reason:'Запросить график платежа'}],
     tasks:[
       {c:1,title:'Запросить КП у ПКБ/ГБК по B2B-доступу',owner:'Инициатор',due:plusDay(10),done:false},
       {c:1,title:'Юрзаключение: ст. 20 пп. 2) Закона № 573-II',owner:'Юрист',due:plusDay(14),done:false},
@@ -266,7 +266,7 @@ function evidence(type,src){
 }
 
 /* ====== STATE ====== */
-let DB=load(); let filter={kpi:'all',color:'all',region:'all',q:''}; let current=1;
+let DB=load(); let filter={kpi:'all',color:'all',region:'all',q:''}; let current=null;
 function load(){try{const r=localStorage.getItem(LSKEY);if(r)return JSON.parse(r);}catch(e){}const s=generate();try{localStorage.setItem(LSKEY,JSON.stringify(s));}catch(e){}return s;}
 function save(){try{localStorage.setItem(LSKEY,JSON.stringify(DB));}catch(e){}}
 function resetData(){if(confirm('Сбросить демо (500 компаний, синтетика)?')){localStorage.removeItem(LSKEY);DB=generate();save();current=1;renderAll();}}
