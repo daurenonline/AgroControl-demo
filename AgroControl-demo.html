@@ -178,7 +178,8 @@
 
   <div class="two">
     <section class="panel"><div class="ph"><div><h2 class="pt">Реестр рисков проекта</h2><span class="s">Вероятность × влияние</span></div></div>
-      <div class="tbl-wrap" style="max-height:280px"><table class="risk"><thead><tr><th>Риск</th><th style="text-align:center">В</th><th style="text-align:center">Вл</th><th style="text-align:center">Балл</th><th>Владелец</th></tr></thead><tbody id="riskRows"></tbody></table></div></section>
+      <div class="tbl-wrap" style="max-height:280px"><table class="risk"><thead><tr><th>Риск</th><th style="text-align:center">В</th><th style="text-align:center">Вл</th><th style="text-align:center">Балл</th><th>Владелец</th></tr></thead><tbody id="riskRows"></tbody></table></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px">Балл = вероятность × влияние: 1–4 низкий · 5–9 средний · 10–14 высокий · 15–25 критичный. Это риски <b>проекта</b> (доступ к данным, цена, история, готовое решение), а не риски отдельных клиентов.</div></section>
     <section class="panel"><div class="ph"><div><h2 class="pt">Реестр источников</h2><span class="s">Статус подтверждения</span></div></div>
       <div class="tbl-wrap" style="max-height:280px"><table class="risk"><thead><tr><th>Источник</th><th>Что даёт</th><th>Статус</th></tr></thead><tbody id="srcRows"></tbody></table></div></section>
   </div>
@@ -221,6 +222,13 @@ const ROOTS=['АгроСнаб','Поле','Жасыл','Дала','АгроТр
 const SUF=['Север','Юг','KZ','Агро','Химия','Ресурс','Сервис','Трейд','Плюс','Групп'];
 const REGIONS=['Акмолинская','Костанайская','Северо-Казахстанская','Карагандинская','Восточно-Казахстанская','Алматинская','Жамбылская','Туркестанская','Актюбинская','Западно-Казахстанская','Павлодарская','Кызылординская'];
 const USERS=['Менеджер А. Ермеков (Акмолинская)','Менеджер Д. Смагулов (Костанай)','Менеджер Ж. Кабылов (СКО)','Менеджер Е. Мукашев (Караганда)'];
+/* Контакты менеджеров (синтетика). В пилоте — из CRM. */
+const MANAGER_CONTACTS={
+ 'Менеджер А. Ермеков (Акмолинская)':{phone:'77010000001',tg:'ermekov_sales'},
+ 'Менеджер Д. Смагулов (Костанай)':{phone:'77010000002',tg:'smagulov_sales'},
+ 'Менеджер Ж. Кабылов (СКО)':{phone:'77010000003',tg:'kabylov_sales'},
+ 'Менеджер Е. Мукашев (Караганда)':{phone:'77010000004',tg:'mukashev_sales'}
+};
 const SRC=['КГД','АИС ОИП','Кредитное бюро','ГБД ЮЛ'];
 const EVT=['Налоговая задолженность','Исполнительное производство','Негативная информация (>90 дней)','Смена руководителя','Ограничение выписки ЭСФ','Банкротство/реабилитация'];
 
@@ -356,9 +364,29 @@ function renderCard(){
      <div><b>Внешний PD (демо):</b> ${c.spPD.toFixed(1)}%<br><button class="outline" onclick="openRating(${c.id})">Оценить рейтинг →</button></div>
    </div>
    <div class="ph" style="margin:12px 0 6px"><h3 class="pt" style="font-size:13px">События (${evs.length})</h3></div>${evh}
-   <div style="margin-top:8px"><button class="primary" onclick="decideClient(${c.id})">Зафиксировать решение</button></div>`;
+   <div style="margin-top:8px"><button class="primary" onclick="decideClient(${c.id})">Зафиксировать решение</button></div>
+   <div class="ph" style="margin:12px 0 6px"><h3 class="pt" style="font-size:13px">Связаться — агент готовит обращение</h3></div>
+   <div style="font-size:12px;background:#f7fafc;border:1px solid var(--line);border-radius:6px;padding:8px">${esc(draftText(c))}</div>
+   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${contactButtons(c)}<button onclick="logContact(${c.id})">Зафиксировать отправку</button></div>`;
 }
 function decideClient(id){const c=C(id);const reason=prompt('Решение/комментарий (в журнал):','Связаться с клиентом по просрочке');if(reason===null)return;DB.decisions.unshift({c:id,t:nowStr(),by:c.user,act:'Подтверждено',reason:reason});save();renderJournal();alert('Сохранено в журнал.');}
+
+/* ====== ОБРАЩЕНИЯ (агент готовит, человек отправляет) ====== */
+function draftText(c){
+  const col=colorOf(c);
+  const head=`Здравствуйте! ${c.name} (БИН ${c.bin}). `;
+  if(col==='red') return head+`По договору просрочка ${c.dpd||0} дн, долг ${money(c.debt)}. Просим оплатить или согласовать график в ближайшее время.`;
+  if(col==='orange') return head+`Просрочка ${c.dpd||0} дн, долг ${money(c.debt)}. Уточните, пожалуйста, дату оплаты.`;
+  if(col==='yellow') return head+`Просрочка ${c.dpd||0} дн, долг ${money(c.debt)}. Напоминаем об оплате.`;
+  return head+`Напоминаем о плановой оплате до ${c.due}.`;
+}
+function contactButtons(c){
+  const m=MANAGER_CONTACTS[c.user]||{phone:'',tg:''};
+  const txt=encodeURIComponent(draftText(c));
+  return `<a class="pill b" style="text-decoration:none" target="_blank" href="https://wa.me/${m.phone}?text=${txt}">WhatsApp</a>
+    <a class="pill b" style="text-decoration:none" target="_blank" href="https://t.me/${m.tg}">Telegram</a>`;
+}
+function logContact(cid){const c=C(cid);DB.decisions.unshift({c:cid,t:nowStr(),by:'Агент → менеджер',act:'Обращение отправлено',reason:draftText(c)});save();renderJournal();alert('Зафиксировано в журнале: обращение подготовлено агентом и отправлено менеджером.');}
 
 /* ====== AGENT ====== */
 const AGENT_SOURCES=[
@@ -512,7 +540,7 @@ function renderConc(){ const all=scopedClients(); const total=all.reduce((s,c)=>
 
 /* ====== WORK QUEUE ====== */
 const ACTION={red:'Позвонить + юридическая проверка',orange:'Напомнить об оплате, уточнить график',yellow:'Напомнить об оплате'};
-function renderQueue(){ const list=scopedClients().filter(c=>['red','orange','yellow'].includes(colorOf(c))).sort((a,b)=>severity(a)-severity(b)||b.debt-a.debt); $('queueSub').textContent=`${list.length} компаний требуют действия`+(role==='manager'&&manager?` · ${esc(manager)}`:''); const show=list.slice(0,25); $('queueBody').innerHTML=show.map(c=>{const col=colorOf(c);return `<div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;padding:7px 0;border-bottom:1px solid #eef1f4"><div><span class="dot ${col[0]}"></span><b style="font-size:12.5px">${esc(c.name)}</b><div style="color:var(--muted);font-size:11px">${esc(c.region)} · ${esc(c.user)} · DPD ${c.dpd||0} дн · долг ${mln(c.debt)}</div><div style="font-size:11.5px;margin-top:2px">${ACTION[col]}</div></div><button class="primary" onclick="decideClient(${c.id})" style="white-space:nowrap">В работу</button></div>`;}).join('')+(list.length>25?`<div style="color:var(--muted);font-size:11.5px;padding-top:6px">Показаны первые 25 из ${list.length}</div>`:''); }
+function renderQueue(){ const list=scopedClients().filter(c=>['red','orange','yellow'].includes(colorOf(c))).sort((a,b)=>severity(a)-severity(b)||b.debt-a.debt); $('queueSub').textContent=`${list.length} компаний требуют действия`+(role==='manager'&&manager?` · ${esc(manager)}`:''); const show=list.slice(0,25); $('queueBody').innerHTML=show.map(c=>{const col=colorOf(c);return `<div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;padding:7px 0;border-bottom:1px solid #eef1f4"><div><span class="dot ${col[0]}"></span><b style="font-size:12.5px">${esc(c.name)}</b><div style="color:var(--muted);font-size:11px">${esc(c.region)} · ${esc(c.user)} · DPD ${c.dpd||0} дн · долг ${mln(c.debt)}</div><div style="font-size:11.5px;margin-top:2px">${ACTION[col]}</div></div><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${contactButtons(c)}<button class="primary" onclick="decideClient(${c.id})" style="white-space:nowrap">В работу</button></div></div>`;}).join('')+(list.length>25?`<div style="color:var(--muted);font-size:11.5px;padding-top:6px">Показаны первые 25 из ${list.length}</div>`:''); }
 
 /* ====== NAV ====== */
 function setStage(s){$('tab-s1').classList.toggle('active',s==='s1');$('tab-s2').classList.toggle('active',s==='s2');$('stage1').style.display=s==='s1'?'block':'none';$('stage2').style.display=s==='s2'?'block':'none';}
