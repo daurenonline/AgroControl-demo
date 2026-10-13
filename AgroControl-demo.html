@@ -319,7 +319,7 @@ function evidence(type,src){
 }
 
 /* ====== STATE ====== */
-let DB=load(); let filter={kpi:'all',color:'all',region:'all',q:''}; let current=null; let role='risk', manager=null;
+let DB=load(); let filter={kpi:'all',color:'all',region:'all',q:''}; let current=null; let role='risk', manager=null; let stage='s1';
 function load(){try{const r=localStorage.getItem(LSKEY);if(r)return JSON.parse(r);}catch(e){}const s=generate();try{localStorage.setItem(LSKEY,JSON.stringify(s));}catch(e){}return s;}
 function save(){try{localStorage.setItem(LSKEY,JSON.stringify(DB));}catch(e){}}
 function resetData(){if(confirm('Сбросить демо (500 компаний, синтетика)?')){localStorage.removeItem(LSKEY);DB=generate();save();current=1;renderAll();}}
