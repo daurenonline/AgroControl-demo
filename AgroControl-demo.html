@@ -155,31 +155,40 @@
     </div>
   </div>
 
-  <!-- КАБИНЕТ РИСК-МЕНЕДЖЕРА (доступ: роль «Риск-менеджер») -->
+  <!-- КАБИНЕТ ОЦЕНКИ: АНКЕТА 5 C's (доступ: роль «Риск-менеджер») -->
   <div id="stage2" style="display:none">
-    <div class="notice"><span><b>Кабинет риск-менеджера.</b> Оценка при <b>онбординге</b> и <b>пересмотр</b> в рамках мониторинга. Открытая методика: <b>5 C's of Credit</b> (Character, Capacity, Capital, Collateral, Conditions) + принципы World Bank «Agricultural Sector Risk Assessment». Класс — оценка AgroControl, не рейтинг агентства.</span></div>
+    <div class="notice"><span><b>Кабинет оценки — анкета по открытой методике 5 C's of Credit.</b> Заполняется при <b>онбординге</b> и пересматривается в мониторинге. Оценка AgroControl, не рейтинг агентства.</span></div>
+    <section class="panel">
+      <div class="ph"><div><h2 class="pt">Заявка на оценку</h2><span class="s" id="cabSub"></span></div>
+        <span style="display:flex;gap:6px;flex-wrap:wrap">
+          <select id="evalSel" onchange="renderEval()" style="min-width:280px"></select>
+          <button onclick="fakeUpload()">⬆ Загрузить отчётность</button>
+        </span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div class="bar" style="flex:1"><i id="cabProgress"></i></div><b id="cabProgressTxt" style="font-size:12px">0%</b></div>
+      <div id="cabForm" style="display:grid;grid-template-columns:1fr 1fr;gap:12px"></div>
+    </section>
     <div class="two">
       <section class="panel">
-        <div class="ph"><div><h2 class="pt">Портфель рисковика</h2><span class="s">Онбординг · Пересмотр · Наблюдение</span></div></div>
-        <div class="toolbar">
-          <input id="rq" type="search" placeholder="Поиск клиента..." oninput="renderRiskList()">
-          <select id="rf" onchange="renderRiskList()"><option value="all">Все</option><option value="new">Онбординг</option><option value="review">Пересмотр</option><option value="watch">Наблюдение</option></select>
-        </div>
-        <div class="tbl-wrap"><table><thead><tr><th>Клиент / БИН</th><th>Статус</th><th>Класс</th><th>Реком. лимит</th></tr></thead><tbody id="riskList"></tbody></table></div>
+        <div class="ph"><div><h2 class="pt">Итог оценки</h2><span class="s">5 C's → класс и лимит</span></div></div>
+        <div id="cabResult"></div>
       </section>
       <section class="panel">
-        <div class="ph"><div><h2 class="pt">Оценка клиента</h2><span class="s">5 C's of Credit</span></div></div>
-        <div class="toolbar">
-          <select id="evalSel" onchange="renderEval()" style="flex:1"></select>
-          <button class="primary" onclick="fakeUpload()">⬆ Загрузить отчётность</button>
+        <div class="ph"><div><h2 class="pt">Заключение и решение</h2><span class="s">Для подписи; пишется в журнал</span></div></div>
+        <textarea id="cabMemo" style="width:100%;height:150px;font-size:12.5px" placeholder="Обоснование оценки, условия лимита..."></textarea>
+        <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+          <button class="primary" onclick="riskDecide('одобрено')">Одобрить лимит</button>
+          <button onclick="riskDecide('наблюдение')">Наблюдение</button>
+          <button class="acc" onclick="riskDecide('отказ')">Отказ</button>
+          <button onclick="cabMemoFill()">Заполнить тезисами</button>
         </div>
-        <div id="evalInputs" class="tbl-wrap" style="max-height:none"></div>
-        <div id="evalResult" style="margin-top:10px"></div>
       </section>
     </div>
     <section class="panel">
-      <div class="ph"><div><h2 class="pt">Решение рисковика</h2><span class="s">Одобрить · Наблюдение · Отказ; пишется в журнал</span></div></div>
-      <div id="riskDecisions"></div>
+      <div class="ph"><div><h2 class="pt">Портфель на рассмотрении</h2><span class="s">Онбординг · Пересмотр · Наблюдение</span></div>
+        <span style="display:flex;gap:6px"><input id="rq" type="search" placeholder="Поиск..." oninput="renderRiskList()"><select id="rf" onchange="renderRiskList()"><option value="all">Все</option><option value="new">Онбординг</option><option value="review">Пересмотр</option><option value="watch">Наблюдение</option></select></span>
+      </div>
+      <div class="tbl-wrap" style="max-height:280px"><table><thead><tr><th>Клиент / БИН</th><th>Статус</th><th>Класс</th><th>Реком. лимит</th></tr></thead><tbody id="riskList"></tbody></table></div>
     </section>
   </div>
 
@@ -559,7 +568,7 @@ function ensureFin(c){
   const ca=Math.round(assets*(0.35+seedv*0.3)/1e6)*1e6;
   const cl=Math.round(ca/(0.9+seedv*1.1)/1e6)*1e6;
   const np=Math.round(rev*(0.02+seedv*0.08)/1e6)*1e6;
-  FIN[c.id]={rev,ca,cl,assets,equity,debt,ocf,np,coll:1,loaded:false};
+  FIN[c.id]={rev,ca,cl,assets,equity,debt,ocf,np,q:{term:13,rep:12,season:12,capdyn:12,colltype:12,collcov:12,crop:12,wx:12},loaded:false};
   return FIN[c.id];
 }
 function sHi(v,b){return v>=b[0]?100:v>=b[1]?75:v>=b[2]?50:v>=b[3]?25:0;}
@@ -567,47 +576,61 @@ function sLo(v,b){return v<=b[0]?100:v<=b[1]?75:v<=b[2]?50:v<=b[3]?25:0;}
 const LIMITPCT={'AC-A':1,'AC-B':0.9,'AC-C':0.7,'AC-D':0.5,'AC-E':0.3,'AC-F':0.1,'AC-G':0};
 const REGION_RISK={'Акмолинская':16,'Костанайская':16,'Северо-Казахстанская':17,'Карагандинская':12,'Восточно-Казахстанская':12,'Алматинская':13,'Жамбылская':11,'Туркестанская':10,'Актюбинская':10,'Западно-Казахстанская':11,'Павлодарская':13,'Кызылординская':9};
 const COLL=[4,12,20];
-function eval5c(c,f){
+function q5c(c,f){
   const liq=f.cl?f.ca/f.cl:0, aut=f.assets?f.equity/f.assets:0, da=f.assets?f.debt/f.assets:1, cov=f.debt?f.ocf/f.debt:0, ros=f.rev?f.np/f.rev:0;
-  const cmap={green:18,yellow:13,orange:8,red:3};let ch=cmap[colorOf(c)]||10;if(/негатив|ликвидац/i.test(c.bureau||''))ch-=4;ch=Math.max(0,Math.min(20,ch));
-  const cap=Math.round(sHi(cov,[0.5,0.3,0.15,0.05])/100*12 + sHi(ros,[0.1,0.06,0.03,0.01])/100*8);
-  const capital=Math.round(sHi(aut,[0.5,0.35,0.25,0.15])/100*12 + sLo(da,[0.3,0.5,0.65,0.8])/100*8);
-  const coll=COLL[f.coll||0];
-  const cond=Math.min(20,(REGION_RISK[c.region]||12)+2);
-  const total=ch+cap+capital+coll+cond;
-  return {total,cls:classByScore(total),cs:{ch,cap,capital,coll,cond},m:{liq,aut,da,cov,ros}};
+  const q=f.q||{};
+  const cmap={green:18,yellow:13,orange:8,red:3}; const chB=cmap[colorOf(c)]||10;
+  const bureau=/негатив|ликвидац/i.test(c.bureau||'')?6:14;
+  const C1=Math.round((chB+bureau+(q.term||13))/3);
+  const covS=sHi(cov,[0.5,0.3,0.15,0.05])/5, rosS=sHi(ros,[0.1,0.06,0.03,0.01])/5;
+  const C2=Math.round((covS+rosS+(q.season||12))/3);
+  const autS=sHi(aut,[0.5,0.35,0.25,0.15])/5, daS=sLo(da,[0.3,0.5,0.65,0.8])/5;
+  const C3=Math.round((autS+daS+(q.capdyn||12))/3);
+  const C4=Math.round(((q.colltype||12)+(q.collcov||12))/2);
+  const regionS=Math.min(20,(REGION_RISK[c.region]||12)+2);
+  const C5=Math.round((regionS+(q.crop||12)+(q.wx||12))/3);
+  const total=C1+C2+C3+C4+C5;
+  return {total,cls:classByScore(total),cs:{C1,C2,C3,C4,C5}};
 }
 function statusOf(c){const f=ensureFin(c);if(!f.loaded)return 'new';return colorOf(c)==='red'?'watch':'review';}
 function statusLbl(s){return s==='new'?'Онбординг':s==='watch'?'Наблюдение':'Пересмотр';}
 function fillEvalSel(){const sel=$('evalSel');if(!sel)return;sel.innerHTML=DB.clients.slice(0,60).map(c=>`<option value="${c.id}">${esc(c.name)} — ${mln(c.debt)}</option>`).join('');}
 function fakeUpload(){const c=C(+$('evalSel').value)||DB.clients[0];const f=ensureFin(c);const s=(c.id*9301)%7;['rev','ocf','assets','equity','debt','ca','cl','np'].forEach(k=>{f[k]=Math.round(f[k]*(1+((s-3)/50))/1e6)*1e6;});f.loaded=true;renderEval();alert('Отчётность загружена (демо): Баланс, ОДДС, ОПиУ, Активы.');}
 function onFin(id,k,v){const f=ensureFin(C(id));f[k]=+v||0;f.loaded=true;renderEval();}
+function onQ(id,k,v){const f=ensureFin(C(id));f.q[k]=+v;f.loaded=true;renderEval();}
+function cmapv(c){const m={green:18,yellow:13,orange:8,red:3};return m[colorOf(c)]||10;}
 function renderEval(){
-  const sel=$('evalSel');if(!sel)return;const id=+sel.value||DB.clients[0].id;const c=C(id);const f=ensureFin(c);const r=eval5c(c,f);
-  const inp=(k,l)=>`<tr><td>${l}</td><td><input type="number" value="${f[k]}" onchange="onFin(${id},'${k}',this.value)" style="width:140px"></td></tr>`;
-  const collSel=`<tr><td>Обеспечение (залог/гарантия)</td><td><select onchange="onColl(${id},this.value)">${['Нет','Частичное','Полное'].map((o,i)=>`<option value="${i}" ${f.coll==i?'selected':''}>${o}</option>`).join('')}</select></td></tr>`;
-  $('evalInputs').innerHTML=`<table class="risk"><thead><tr><th>Данные: отчётность + обеспечение</th><th>Значение</th></tr></thead><tbody>`+inp('rev','Выручка, ₸')+inp('np','Чистая прибыль, ₸')+inp('ocf','ОДДС: операц. поток, ₸')+inp('assets','Активы (итого), ₸')+inp('equity','Собственный капитал, ₸')+inp('debt','Обязательства, ₸')+inp('ca','Оборотные активы, ₸')+inp('cl','Краткосроч. обязательства, ₸')+collSel+`</tbody></table>`;
-  const cs=r.cs,col=v=>v>=16?'var(--green)':v>=10?'var(--yellow)':v>=5?'var(--orange)':'var(--red)';
-  const row=(lbl,v,ref)=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid #eef1f4"><span>${lbl} <span style="color:var(--muted)">${ref||''}</span></span><b style="color:${col(v)}">${v}/20</b></div>`;
+  const sel=$('evalSel');if(!sel)return;const id=+sel.value||DB.clients[0].id;const c=C(id);const f=ensureFin(c);const q=f.q;const r=q5c(c,f);
+  const liq=f.cl?f.ca/f.cl:0,aut=f.assets?f.equity/f.assets:0,da=f.assets?f.debt/f.assets:1,cov=f.debt?f.ocf/f.debt:0,ros=f.rev?f.np/f.rev:0;
+  const A=(l,v)=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px dashed #eef1f4"><span>${l} <span style="color:var(--muted);font-size:10px">авто</span></span><b>${v}/20</b></div>`;
+  const S=(k,l,opts)=>`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:12px;padding:3px 0;border-bottom:1px dashed #eef1f4"><span>${l}</span><select onchange="onQ(${id},'${k}',this.value)">${opts.map(o=>`<option value="${o[0]}" ${q[k]==o[0]?'selected':''}>${o[1]}</option>`).join('')}</select></div>`;
+  const card=(n,title,sub,body,score)=>`<div class="card" style="margin:0"><div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-size:13px">${n}. ${title}</b><span class="pill" style="background:${score>=16?'#eaf8f0':score>=10?'#fdf7e0':score>=5?'#fef2e6':'#fdecea'}">${score}/20</span></div><div style="color:var(--muted);font-size:11px;margin:4px 0 6px">${sub}</div>${body}</div>`;
+  const oTerm=[[8,'<1 года'],[13,'1–3 года'],[18,'>3 лет']],oRep=[[6,'Нет'],[12,'Есть'],[18,'Положительные']],oSeason=[[8,'Высокая'],[13,'Умеренная'],[18,'Низкая']],oDyn=[[8,'Снижается'],[13,'Стабилен'],[18,'Растёт']],oCT=[[6,'Нет'],[12,'Земля/техника'],[18,'Залог+гарантия']],oCC=[[6,'<50%'],[12,'50–100%'],[18,'>100%']],oCrop=[[8,'Монокультура'],[13,'2–3 культуры'],[18,'Диверсификация']],oWx=[[8,'Высокий'],[13,'Средний'],[18,'Низкий/страховка']];
+  $('cabSub').textContent=statusLbl(statusOf(c))+' · '+c.name+' · БИН '+c.bin;
+  $('cabForm').innerHTML=
+    card(1,'Character','Платёжная дисциплина', A('DPD (просрочка)',cmapv(c))+A('Кредитное бюро',(/негатив|ликвидац/i.test(c.bureau||'')?6:14))+S('term','Срок сотрудничества',oTerm), r.cs.C1)
+    +card(2,'Capacity','Способность платить', A('Покрытие долга ОДДС',Math.round(sHi(cov,[0.5,0.3,0.15,0.05])/5))+A('Рентабельность (ЧП/выручка)',Math.round(sHi(ros,[0.1,0.06,0.03,0.01])/5))+S('season','Сезонность',oSeason), r.cs.C2)
+    +card(3,'Capital','Капитал', A('Автономия (капитал/активы)',Math.round(sHi(aut,[0.5,0.35,0.25,0.15])/5))+A('Долг/активы',Math.round(sLo(da,[0.3,0.5,0.65,0.8])/5))+S('capdyn','Динамика капитала',oDyn), r.cs.C3)
+    +card(4,'Collateral','Обеспечение', S('colltype','Тип обеспечения',oCT)+S('collcov','Покрытие долга обеспечением',oCC), r.cs.C4)
+    +card(5,'Conditions','Условия', A('Регион',Math.min(20,(REGION_RISK[c.region]||12)+2))+S('crop','Культуры',oCrop)+S('wx','Погодный/ценовой риск',oWx), r.cs.C5);
+  const used=['term','season','capdyn','colltype','collcov','crop','wx'];let fld=0;used.forEach(k=>{if(q[k]!=null)fld++;});const pct=Math.round(fld/used.length*100);
+  $('cabProgress').style.width=pct+'%';$('cabProgressTxt').textContent=pct+'%';
+  const col=v=>v>=16?'var(--green)':v>=10?'var(--yellow)':v>=5?'var(--orange)':'var(--red)';
+  const bar=(l,v)=>`<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:12px"><span>${l}</span><b style="color:${col(v)}">${v}/20</b></div><div class="bar"><i style="width:${v*5}%;background:${col(v)}"></i></div></div>`;
   const lim=Math.round(c.debt*(LIMITPCT[r.cls.c]||0));
-  $('evalResult').innerHTML=`<div style="text-align:center;margin-bottom:10px"><span class="pill" style="background:${r.cls.color};color:#fff;font-size:20px;padding:8px 20px">${r.cls.c}</span><div style="font-size:12px;color:var(--muted);margin-top:6px">Итог ${r.total}/100 · 5 C's of Credit · оценка AgroControl</div></div>`
-    +row('1. Character — платёжная дисциплина',cs.ch,'(DPD, бюро)')
-    +row('2. Capacity — способность платить',cs.cap,'(покрытие долга, маржа)')
-    +row('3. Capital — капитал',cs.capital,'(автономия, долг/активы)')
-    +row('4. Collateral — обеспечение',cs.coll,'(залог/гарантия)')
-    +row('5. Conditions — условия',cs.cond,'(регион, сезон)')
-    +`<div class="note" style="margin-top:10px">Рекомендуемый лимит отсрочки: <b>${mln(lim)}</b> (${Math.round((LIMITPCT[r.cls.c]||0)*100)}% от текущего долга ${mln(c.debt)}). Открытая методика: 5 C's of Credit; в пилоте — данные 1С/МСФО.</div>`;
-  renderRiskDecisions();
+  $('cabResult').innerHTML=`<div style="text-align:center;margin-bottom:12px"><span class="pill" style="background:${r.cls.color};color:#fff;font-size:20px;padding:8px 20px">${r.cls.c}</span><div style="font-size:12px;color:var(--muted);margin-top:6px">Итог ${r.total}/100 · 5 C's of Credit</div></div>`
+    +bar('Character',r.cs.C1)+bar('Capacity',r.cs.C2)+bar('Capital',r.cs.C3)+bar('Collateral',r.cs.C4)+bar('Conditions',r.cs.C5)
+    +`<div class="note">Рекомендуемый лимит отсрочки: <b>${mln(lim)}</b> (${Math.round((LIMITPCT[r.cls.c]||0)*100)}% от долга ${mln(c.debt)}).</div>`;
 }
-function onColl(id,v){const f=ensureFin(C(id));f.coll=+v;f.loaded=true;renderEval();}
+function fakeUpload(){const c=C(+$('evalSel').value)||DB.clients[0];const f=ensureFin(c);const s=(c.id*9301)%7;['rev','ocf','assets','equity','debt','ca','cl','np'].forEach(k=>{f[k]=Math.round(f[k]*(1+((s-3)/50))/1e6)*1e6;});f.loaded=true;renderEval();renderRiskList();alert('Отчётность загружена (демо): Баланс, ОДДС, ОПиУ.');}
+function cabMemoFill(){const id=+$('evalSel').value;const c=C(id);const f=ensureFin(c);const r=q5c(c,f);const lim=Math.round(c.debt*(LIMITPCT[r.cls.c]||0));const weak=[['Character',r.cs.C1],['Capacity',r.cs.C2],['Capital',r.cs.C3],['Collateral',r.cs.C4],['Conditions',r.cs.C5]].filter(x=>x[1]<10).map(x=>x[0]).join(', ')||'нет';$('cabMemo').value=`Оценка AgroControl от ${today()} по методике 5 C's of Credit.\nИтог: ${r.total}/100, класс ${r.cls.c}.\nСлабые факторы: ${weak}.\nРекомендуемый лимит отсрочки: ${mln(lim)}.\nУсловия: контроль DPD, пересмотр по событию.`;}
 function renderRiskList(){
   const q=(($('rq')||{}).value||'').toLowerCase();const fl=($('rf')||{}).value||'all';
   let list=DB.clients.slice(0,60).filter(c=>(c.name+c.bin).toLowerCase().includes(q));
   if(fl!=='all') list=list.filter(c=>statusOf(c)===fl);
-  $('riskList').innerHTML=list.map(c=>{const f=ensureFin(c);const r=eval5c(c,f);const st=statusOf(c);return `<tr onclick="openRating(${c.id})"><td>${esc(c.name)}<div style="color:var(--muted);font-size:11px">${c.bin}</div></td><td><span class="pill ${st==='watch'?'r':st==='review'?'b':'y'}">${statusLbl(st)}</span></td><td><span class="pill" style="background:${r.cls.color};color:#fff">${r.cls.c}</span></td><td>${mln(Math.round(c.debt*(LIMITPCT[r.cls.c]||0)))}</td></tr>`;}).join('')||'<tr><td colspan="4" style="color:var(--muted)">Нет записей.</td></tr>';
+  $('riskList').innerHTML=list.map(c=>{const f=ensureFin(c);const r=q5c(c,f);const st=statusOf(c);return `<tr onclick="openRating(${c.id})"><td>${esc(c.name)}<div style="color:var(--muted);font-size:11px">${c.bin}</div></td><td><span class="pill ${st==='watch'?'r':st==='review'?'b':'y'}">${statusLbl(st)}</span></td><td><span class="pill" style="background:${r.cls.color};color:#fff">${r.cls.c}</span></td><td>${mln(Math.round(c.debt*(LIMITPCT[r.cls.c]||0)))}</td></tr>`;}).join('')||'<tr><td colspan="4" style="color:var(--muted)">Нет записей.</td></tr>';
 }
-function renderRiskDecisions(){const el=$('riskDecisions');if(!el)return;const id=+($('evalSel')||{}).value;const c=id?C(id):null;$('riskDecisions').innerHTML=(c?`<div style="font-size:12.5px;margin-bottom:8px">Клиент: <b>${esc(c.name)}</b></div>`:'')+`<button class="primary" onclick="riskDecide('одобрено')">Одобрить лимит</button> <button onclick="riskDecide('наблюдение')">Наблюдение</button> <button class="acc" onclick="riskDecide('отказ')">Отказ</button>`;}
-function riskDecide(act){const id=+$('evalSel').value;const c=C(id);const r=eval5c(c,ensureFin(c));DB.decisions.unshift({c:id,t:nowStr(),by:'Риск-менеджер',act:'Оценка: '+act,reason:`Класс ${r.cls.c} (${r.total}/100), лимит ${mln(Math.round(c.debt*(LIMITPCT[r.cls.c]||0)))}`});save();renderJournal();alert('Решение рисковика записано в журнал.');}
+function riskDecide(act){const id=+$('evalSel').value;const c=C(id);const r=q5c(c,ensureFin(c));const lim=Math.round(c.debt*(LIMITPCT[r.cls.c]||0));const memo=($('cabMemo')||{}).value||'';DB.decisions.unshift({c:id,t:nowStr(),by:'Риск-менеджер',act:'Оценка: '+act,reason:`Класс ${r.cls.c} (${r.total}/100), лимит ${mln(lim)}. ${memo}`.trim()});save();renderJournal();alert('Решение рисковика записано в журнал.');}
 function renderRating(){renderRiskList();}
 function openRating(id){setStage('s2');const s=$('evalSel');if(s)s.value=String(id);renderEval();renderRiskList();}
 function renderRatingCard(){}
