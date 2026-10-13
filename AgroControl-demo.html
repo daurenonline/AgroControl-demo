@@ -354,9 +354,9 @@ function severity(c){const col=colorOf(c);return col==='red'?0:col==='orange'?1:
 function plan(){
   const due=DB.clients.filter(c=>nextCheck(c)<=today()).sort((a,b)=>severity(a)-severity(b)||b.debt-a.debt);
   const selected=[],deferred=[];let checks=0;
-  for(const c of due){ if(checks+ACTIVE_SOURCES<=CHECK_LIMIT){selected.push(c);checks+=ACTIVE_SOURCES;} else deferred.push(c); }
+  for(const c of due){ if(checks+1<=CHECK_LIMIT){selected.push(c);checks+=1;} else deferred.push(c); }
   const byColor={red:0,orange:0,yellow:0,green:0};due.forEach(c=>byColor[colorOf(c)]++);
-  const fullChecks=DB.clients.length*ACTIVE_SOURCES;
+  const fullChecks=DB.clients.length;
   return {due:due.length,selected,deferred,checks,byColor,cost:checks*CHECK_COST,limit:CHECK_LIMIT,fullClients:DB.clients.length,fullChecks,fullCost:fullChecks*CHECK_COST};
 }
 function renderPlan(){
@@ -410,7 +410,7 @@ function finishAgent(){
   const findRows=Object.entries(s.findings).sort((a,b)=>b[1]-a[1]).map(([t,n])=>`<tr><td>${esc(t)}</td><td style="text-align:center">${n}</td></tr>`).join('')||'<tr><td colspan="2" style="color:var(--muted)">Событий не найдено</td></tr>';
   const notChkList=s.notChecked.length?s.notChecked.slice(0,10).map(x=>`<li>${esc(x.name)} — ${esc(x.reason)}</li>`).join(''):'<li>Все компании проверены полностью.</li>';
   $('agentReport').innerHTML=`
-   <div class="ph" style="margin-top:6px"><h3 class="pt" style="font-size:13px">Отчёт агента (${s.mode})</h3><span class="s">Обработано компаний: ${s.size} · запросов к источникам ≈ ${s.size*ACTIVE_SOURCES} (${money(s.size*ACTIVE_SOURCES*CHECK_COST)})</span></div>
+   <div class="ph" style="margin-top:6px"><h3 class="pt" style="font-size:13px">Отчёт агента (${s.mode})</h3><span class="s">Обработано проверок: ${s.size} ≈ ${money(s.size*CHECK_COST)} · внутри проверки — несколько источников</span></div>
    <div class="two" style="gap:14px">
      <div>
        <div style="font-weight:700;font-size:12px;margin-bottom:6px">1. Базы данных, к которым зашёл агент</div>
