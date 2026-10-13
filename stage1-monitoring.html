@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgroControl — прототип. Этап 1: мониторинг</title>
+<style>
+  :root{
+    --navy:#132C43; --teal:#007E87; --gray:#536270; --accent:#D4593A;
+    --bg:#F4F6F8; --panel:#FFFFFF; --line:#E2E8EE; --ok:#2E7D32; --warn:#B7791F; --bad:#C0392B;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--navy);font-size:14px}
+  header{background:var(--navy);color:#fff;padding:10px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  header .brand{font-size:20px;font-weight:bold;letter-spacing:.2px}
+  header .sub{color:#9fb2c4;font-size:12px}
+  .badge-proto{background:var(--accent);color:#fff;font-size:11px;font-weight:bold;padding:3px 8px;border-radius:10px}
+  .banner{background:#FDECE7;border-bottom:1px solid #F3C9BE;color:#7d2e18;padding:7px 18px;font-size:12px}
+  .app{display:flex;min-height:calc(100vh - 92px)}
+  nav{width:230px;background:var(--panel);border-right:1px solid var(--line);padding:12px 0;flex:0 0 auto}
+  nav a{display:block;padding:10px 18px;color:var(--gray);text-decoration:none;cursor:pointer;border-left:3px solid transparent;font-size:13px}
+  nav a:hover{background:#F0F5F7;color:var(--navy)}
+  nav a.active{border-left-color:var(--teal);background:#EDF6F7;color:var(--navy);font-weight:bold}
+  main{flex:1;padding:18px 22px;overflow:auto}
+  h1{font-size:19px;margin:0 0 4px}
+  .hint{color:var(--gray);font-size:12px;margin:0 0 14px}
+  .chip{display:inline-block;background:#EDF1F5;color:var(--gray);border-radius:10px;padding:2px 8px;font-size:11px;margin-right:6px}
+  .chip.warn{background:#FDF3E2;color:var(--warn)}
+  .chip.bad{background:#FDECE7;color:var(--bad)}
+  .chip.ok{background:#E8F4E9;color:var(--ok)}
+  table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:top}
+  th{background:var(--navy);color:#fff;font-size:12px;font-weight:bold}
+  tr.clik{cursor:pointer}
+  tr.clik:hover td{background:#F0F5F7}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:16px;margin-bottom:14px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .kv{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed var(--line);font-size:13px}
+  .kv span:first-child{color:var(--gray)}
+  .ev{border-left:3px solid var(--teal);background:#FBFDFE;padding:10px 12px;margin-bottom:10px;border-radius:0 5px 5px 0}
+  .ev .top{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .ev .src{color:var(--gray);font-size:11px}
+  .ev .evi{font-size:12px;color:var(--navy);margin-top:4px}
+  button{font-family:inherit;font-size:12px;border:1px solid var(--line);background:#fff;color:var(--navy);padding:6px 10px;border-radius:5px;cursor:pointer}
+  button:hover{background:#F0F5F7}
+  button.primary{background:var(--teal);color:#fff;border-color:var(--teal)}
+  button.acc{background:var(--accent);color:#fff;border-color:var(--accent)}
+  button:disabled{opacity:.5;cursor:default}
+  .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  .empty{color:var(--gray);font-style:italic}
+  .prio{font-weight:bold}
+  .prio.hi{color:var(--bad)} .prio.mid{color:var(--warn)} .prio.lo{color:var(--ok)}
+  .note{background:#FFF8E1;border:1px solid #F0E0A8;color:#6b5300;padding:8px 12px;border-radius:6px;font-size:12px;margin-bottom:12px}
+</style>
+</head>
+<body>
+<header>
+  <span class="brand">AgroControl</span>
+  <span class="sub">Мониторинг контрагентов и платёжный риск для агробизнеса</span>
+  <span class="badge-proto">ПРОТОТИП · этап 1</span>
+</header>
+<div class="banner">Синтетические данные. Интеграций с реальными источниками нет. Это не продукт: показывает будущий рабочий процесс. Значения вымышлены.</div>
+
+<div class="app">
+  <nav id="nav">
+    <a data-v="portfolio" class="active">▤ Портфель</a>
+    <a data-v="card">▣ Карточка контрагента</a>
+    <a data-v="feed">◉ Лента событий</a>
+    <a data-v="queue">⚑ Очередь предупреждений</a>
+    <a data-v="journal">✓ Журнал решений</a>
+    <a data-v="incomplete">◌ Неполная проверка</a>
+  </nav>
+  <main id="view"></main>
+</div>
+
+<script>
+/* ==== Синтетические данные (вымышлены) ==== */
+const CLIENTS=[
+ {id:1,bin:'010240001234',name:'ТОО «АгроСнаб-Север»',debt:12400000,due:'2026-09-15',status:'просрочка',user:'Юрист А. Сеитова'},
+ {id:2,bin:'120340005678',name:'ТОО «Поле-Химия»',debt:3200000,due:'2026-10-20',status:'ожидает оплаты',user:'Риск Д. Оспанов'},
+ {id:3,bin:'850410300123',name:'ИП «Нурланов А.К.»',debt:1850000,due:'2026-08-30',status:'просрочка',user:'Юрист А. Сеитова'},
+ {id:4,bin:'070540009012',name:'ТОО «Жасыл Алаң»',debt:7600000,due:'2026-10-05',status:'ожидает оплаты',user:'Риск Д. Оспанов'},
+ {id:5,bin:'990640003456',name:'ТОО «АгроТрейд KZ»',debt:4100000,due:'2026-11-01',status:'ожидает оплаты',user:'Риск Д. Оспанов'},
+ {id:6,bin:'150740007890',name:'ТОО «Дала-Агро»',debt:2300000,due:'2026-09-28',status:'просрочка',user:'Юрист А. Сеитова'},
+ {id:7,bin:'030840001122',name:'ТОО «Хим-Агро Юг»',debt:5900000,due:'2026-10-12',status:'ожидает оплаты',user:'Риск Д. Оспанов'}
+];
+const SOURCES={
+  kgd:{name:'КГД',url:'portal.kgd.gov.kz'},
+  oip:{name:'АИС ОИП Минюста',url:'aisoip.adilet.gov.kz'},
+  bureau:{name:'Кредитное бюро',url:'ПКБ / ГКБ'},
+  ul:{name:'ГБД ЮЛ',url:'egov.kz / ЦОН'},
+  court:{name:'Судебные дела',url:'sud.gov.kz / Судебный кабинет'}
+};
+const EVENTS=[
+ {id:1,c:1,type:'Банкротство/реабилитация',src:'kgd',w:45,date:'2026-10-11',det:'2026-10-11',
+  evi:'Внесена запись о процедуре реабилитации. Тип процедуры и дата решения — из выгрузки КГД.'},
+ {id:2,c:1,type:'Налоговая задолженность',src:'kgd',w:20,date:'2026-10-09',det:'2026-10-09',
+  evi:'Наличие налоговой задолженности по КПН. Сумма в интерфейсе КГД; фиксируем факт и дату.'},
+ {id:3,c:1,type:'Исполнительное производство',src:'oip',w:25,date:'2026-10-11',det:'2026-10-11',
+  evi:'Возбуждено исполнительное производство. Орган и содержание обязанности; сумма в реестре отсутствует.'},
+ {id:4,c:4,type:'Негативная информация (>90 дней)',src:'bureau',w:40,date:'2026-10-08',det:'2026-10-08',
+  evi:'Просрочка свыше 90 календарных дней (негативная информация — выдаётся без согласия субъекта).'},
+ {id:5,c:2,type:'Смена руководителя',src:'ul',w:8,date:'2026-10-06',det:'2026-10-07',
+  evi:'Изменён первый руководитель по данным ГБД ЮЛ. Может быть обычным событием.'},
+ {id:6,c:6,type:'Банкротство/реабилитация',src:'kgd',w:45,date:'2026-09-30',det:'2026-10-01',
+  evi:'Наименование внесено в процедуру реабилитации.'},
+ {id:7,c:7,type:'Ограничение выписки ЭСФ',src:'kgd',w:20,date:'2026-10-10',det:'2026-10-10',
+  evi:'Налогоплательщику произведено ограничение выписки ЭСФ.'},
+ {id:8,c:3,type:'Исполнительное производство',src:'oip',w:25,date:'2026-09-20',det:'2026-09-21',
+  evi:'Возбуждено исполнительное производство (ИП как физическое лицо с БИН).'}
+];
+const INCOMPLETE=[
+ {c:5,src:'court',reason:'Массовый доступ к судебным делам по БИН не подтверждён; требуется точечная проверка через Судебный кабинет (ЭЦП).',status:'неполная проверка'}
+];
+let DECISIONS=[
+ {c:3,t:'2026-10-05 11:20',by:'Юрист А. Сеитова',act:'Подтверждено',reason:'Связаться с клиентом, запросить график платежа'},
+ {c:2,t:'2026-10-07 09:40',by:'Риск Д. Оспанов',act:'Несущественно',reason:'Плановая смена руководителя, долг обслуживается'}
+];
+const queueStatus={}; // id события -> 'new'|'in'|'done'
+
+/* ==== Утилиты ==== */
+const money=n=>n.toLocaleString('ru-RU')+' ₸';
+const client=id=>CLIENTS.find(c=>c.id===id);
+const eventsOf=id=>EVENTS.filter(e=>e.c===id);
+const prio=e=>Math.round(e.w + client(e.c).debt/5000000);
+const sev=score=>score>=45?'hi':score>=25?'mid':'lo';
+const sevText=score=>score>=45?'высокий':score>=25?'средний':'низкий';
+const esc=s=>String(s).replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
+
+function renderQueue(){
+  return EVENTS.map(e=>({e,score:prio(e)}))
+    .filter(x=>!queueStatus[x.e.id]||queueStatus[x.e.id]!=='done')
+    .sort((a,b)=>b.score-a.score)
+    .map(({e,score})=>{
+      const c=client(e.c);
+      return `<div class="ev">
+        <div class="top">
+          <b>${esc(c.name)}</b>
+          <span class="prio ${sev(score)}">приоритет ${score} · ${sevText(score)}</span>
+        </div>
+        <div class="src">${esc(e.type)} · источник: ${SOURCES[e.src].name} (${SOURCES[e.src].url}) · событие ${e.date}, обнаружено ${e.det}</div>
+        <div class="evi">${esc(e.evi)}</div>
+        <div class="src" style="margin-top:6px">Ответственный: ${esc(c.user)} · долг ${money(c.debt)} · срок ${c.due}</div>
+        <div style="margin-top:8px">
+          <button class="primary" onclick="decide(${e.id},'confirm')">Подтвердить</button>
+          <button onclick="decide(${e.id},'minor')">Несущественно</button>
+          <button class="acc" onclick="decide(${e.id},'close')">Закрыть с причиной</button>
+        </div></div>`;
+    }).join('')||'<p class="empty">Очередь пуста.</p>';
+}
+
+function decide(eventId,act){
+  const e=EVENTS.find(x=>x.id===eventId); const c=client(e.c);
+  const map={confirm:'Подтверждено',minor:'Несущественно',close:'Закрыто'};
+  const reason=prompt('Причина/комментарий (сохраняется в журнале, факты не перезаписываются):',
+    act==='confirm'?'Требуется реакция по делу':act==='minor'?'Событие признано несущественным':'Закрыто без действий');
+  if(reason===null) return;
+  DECISIONS.unshift({c:c.id,t:now(),by:c.user,act:map[act],reason:reason});
+  queueStatus[eventId]='done';
+  render('journal');
+  alert('Решение сохранено в журнале. Факты события не изменены — сохранены автор и время.');
+}
+function now(){const d=new Date();return d.toLocaleString('ru-RU',{hour12:false}).replace(',',"");}
+
+/* ==== Экраны ==== */
+const screens={
+ portfolio(){
+  const rows=CLIENTS.map(c=>{
+    const ev=eventsOf(c.id);
+    const bad=ev.some(e=>e.w>=40);
+    const st=ev.length===0?'<span class="chip ok">нет изменений</span>'
+      :bad?'<span class="chip bad">критичное событие</span>':'<span class="chip warn">есть изменения</span>';
+    return `<tr class="clik" onclick="openCard(${c.id})">
+      <td>${esc(c.name)}<div class="src">${c.bin}</div></td>
+      <td>${money(c.debt)}</td><td>${c.due}</td><td>${esc(c.status)}</td><td>${st}</td><td>${esc(c.user)}</td></tr>`;
+  }).join('');
+  return `<h1>Портфель клиентов</h1>
+  <p class="hint">${CLIENTS.length} клиента (демонстрация). Статус — по последним проверкам. Нажмите строку, чтобы открыть карточку.</p>
+  <div class="note">Прототип: данные синтетические. В реальной системе здесь — сопоставление по БИН, отсутствие запись = пробел покрытия.</div>
+  <table><thead><tr><th>Клиент / БИН</th><th>Долг</th><th>Срок</th><th>Статус оплаты</th><th>Изменения</th><th>Ответственный</th></tr></thead><tbody>${rows}</tbody></table>`;
+ },
+ card(){
+  const c=client(currentClient||1);
+  const ev=eventsOf(c.id).map(e=>`<div class="ev"><div class="top"><b>${esc(e.type)}</b><span class="chip warn">${e.date}</span></div>
+    <div class="src">Источник: ${SOURCES[e.src].name} (${SOURCES[e.src].url}) · обнаружено ${e.det}</div>
+    <div class="evi">${esc(e.evi)}</div></div>`).join('')||'<p class="empty">Событий нет.</p>';
+  const inc=INCOMPLETE.find(x=>x.c===c.id);
+  return `<h1>Карточка: ${esc(c.name)}</h1>
+  <p class="hint">БИН ${c.bin} · ответственный ${esc(c.user)}</p>
+  <div class="grid">
+    <div class="card"><h3 style="margin-top:0">Реквизиты и долг</h3>
+      <div class="kv"><span>Долг</span><b>${money(c.debt)}</b></div>
+      <div class="kv"><span>Срок оплаты</span><b>${c.due}</b></div>
+      <div class="kv"><span>Статус</span><b>${esc(c.status)}</b></div>
+      <div class="kv"><span>Проверок выполнено</span><b>${ev.length?4:5}</b></div>
+      ${inc?`<div class="kv"><span>Покрытие</span><span class="chip warn">${inc.status}</span></div>`:''}
+    </div>
+    <div class="card"><h3 style="margin-top:0">Действия</h3>
+      <p class="hint">Система не принимает решения о поставках. Решение оформляет человек.</p>
+      <button class="primary" onclick="render('queue')">Показать в очереди</button>
+      <button onclick="render('feed')">Все события портфеля</button>
+    </div>
+  </div>
+  <div class="card"><h3 style="margin-top:0">События по клиенту</h3>${ev}</div>`;
+ },
+ feed(){
+  const items=EVENTS.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(e=>{
+    const c=client(e.c);
+    return `<div class="ev"><div class="top"><b>${esc(c.name)}</b><span class="src">${e.date}</span></div>
+      <div class="src">${esc(e.type)} · ${SOURCES[e.src].name} (${SOURCES[e.src].url}) · обнаружено ${e.det}</div>
+      <div class="evi">${esc(e.evi)}</div></div>`;
+  }).join('');
+  return `<h1>Лента событий</h1>
+  <p class="hint">Каждое событие: источник, дата события, дата обнаружения, разрешённое доказательство.</p>
+  <div class="filters">${Object.keys(SOURCES).map(k=>`<span class="chip">${SOURCES[k].name}</span>`).join('')}</div>
+  ${items}`;
+ },
+ queue(){
+  return `<h1>Очередь предупреждений</h1>
+  <p class="hint">Приоритет = вес правила + размер долга. Это не вероятность дефолта.</p>
+  <div class="note">Решение фиксирует автор и время; исходные факты не перезаписываются.</div>
+  ${renderQueue()}`;
+ },
+ journal(){
+  const rows=DECISIONS.map(d=>{const c=client(d.c);return `<tr><td>${d.t}</td><td>${esc(d.by)}</td><td>${esc(c.name)}</td><td>${esc(d.act)}</td><td>${esc(d.reason)}</td></tr>`;}).join('');
+  return `<h1>Журнал решений</h1>
+  <p class="hint">Неизменяемая история: кто, когда, что решил и почему.</p>
+  <table><thead><tr><th>Время</th><th>Автор</th><th>Клиент</th><th>Решение</th><th>Причина</th></tr></thead><tbody>${rows||'<tr><td colspan=5 class="empty">Решений пока нет.</td></tr>'}</tbody></table>`;
+ },
+ incomplete(){
+  const inc=INCOMPLETE.map(x=>{const c=client(x.c);return `<div class="ev" style="border-left-color:var(--accent)">
+    <div class="top"><b>${esc(c.name)}</b><span class="chip warn">${x.status}</span></div>
+    <div class="src">Источник: ${SOURCES[x.src].name} (${SOURCES[x.src].url})</div>
+    <div class="evi">${esc(x.reason)}</div></div>`;}).join('');
+  return `<h1>Неполная проверка</h1>
+  <p class="hint">Недоступный источник отображается как пробел покрытия, а не как «чисто».</p>
+  ${inc}
+  <div class="card"><h3 style="margin-top:0">Принцип</h3>
+  <p class="hint">Отсутствие записи не доказывает отсутствие проблемы. Клиент с неполной проверкой помечается явно, и решение принимается с учётом пробела.</p></div>`;
+ }
+};
+
+/* ==== Навигация и рендер ==== */
+let currentClient=1;
+function openCard(id){currentClient=id;render('card');}
+function render(v){
+  const view=document.getElementById('view');
+  view.innerHTML=`<div class="chip">Прототип · синтетические данные</div><div class="chip">Не продукт</div>${screens[v]()}`;
+  document.querySelectorAll('#nav a').forEach(a=>a.classList.toggle('active',a.dataset.v===v));
+  view.scrollTop=0;
+}
+document.getElementById('nav').addEventListener('click',e=>{
+  const a=e.target.closest('a'); if(a) render(a.dataset.v);
+});
+render('portfolio');
+</script>
+</body>
+</html>

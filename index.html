@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgroControl — демо-прототипы</title>
+<style>
+  body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#F4F6F8;color:#132C43}
+  header{background:#132C43;color:#fff;padding:14px 22px}
+  header .brand{font-size:22px;font-weight:bold}
+  header .sub{color:#9fb2c4;font-size:12px}
+  .banner{background:#FDECE7;border-bottom:1px solid #F3C9BE;color:#7d2e18;padding:8px 22px;font-size:12px}
+  main{padding:22px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:1000px}
+  .card{background:#fff;border:1px solid #E2E8EE;border-radius:8px;padding:18px}
+  .badge{display:inline-block;background:#007E87;color:#fff;font-size:11px;font-weight:bold;padding:3px 8px;border-radius:10px}
+  a.btn{display:inline-block;margin-top:12px;background:#007E87;color:#fff;text-decoration:none;padding:9px 14px;border-radius:6px;font-size:13px}
+  ul{margin:8px 0 0 18px;padding:0;color:#536270;font-size:13px}
+  li{margin:3px 0}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">AgroControl</div>
+  <div class="sub">Демо-прототипы: этап 1 (мониторинг) и этап 2 (рейтинг)</div>
+</header>
+<div class="banner">Синтетические данные. Интеграций с реальными источниками нет. Это не продукт — иллюстрация будущего рабочего процесса.</div>
+<main>
+  <div class="card" style="max-width:1000px;margin-bottom:16px;border-color:#007E87">
+    <span class="badge" style="background:#D4593A">ЕДИНЫЙ ПРОТОТИП</span>
+    <h2>Мониторинг → Рейтинг (с переключением этапов)</h2>
+    <p style="color:#536270;font-size:13px;margin:6px 0 0">Один файл: переключатель «Этап 1 · Мониторинг» / «Этап 2 · Рейтинг»; из карточки и очереди можно перейти к оценке рейтинга клиента и обратно.</p>
+    <a class="btn" href="AgroControl-demo.html">Открыть единый прототип</a>
+  </div>
+  <div class="grid">
+    <div class="card">
+      <span class="badge">ЭТАП 1</span>
+      <h2>Мониторинг контрагентов</h2>
+      <ul>
+        <li>Портфель клиентов по БИН</li>
+        <li>Карточка контрагента и история проверок</li>
+        <li>Лента событий с источником, датой и доказательством</li>
+        <li>Очередь предупреждений и приоритет</li>
+        <li>Решение + неизменяемый журнал</li>
+        <li>Панель «неполная проверка»</li>
+      </ul>
+      <a class="btn" href="stage1-monitoring.html">Открыть этап 1</a>
+    </div>
+    <div class="card">
+      <span class="badge">ЭТАП 2 (условно)</span>
+      <h2>Рейтинг платёжного риска</h2>
+      <ul>
+        <li>Обзор рейтинга портфеля</li>
+        <li>Карточка рейтинга клиента</li>
+        <li>Факторы и шкала в стиле Fitch/S&amp;P</li>
+        <li>Мониторинг изменений рейтинга</li>
+        <li>Валидация модели</li>
+        <li>Порог достаточности данных</li>
+      </ul>
+      <a class="btn" href="stage2-rating.html">Открыть этап 2</a>
+    </div>
+  </div>
+</main>
+</body>
+</html>

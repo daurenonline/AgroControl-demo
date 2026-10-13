@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgroControl — прототип. Этап 2: рейтинг платёжного риска</title>
+<style>
+  :root{
+    --navy:#132C43; --teal:#007E87; --gray:#536270; --accent:#D4593A;
+    --bg:#F4F6F8; --panel:#FFFFFF; --line:#E2E8EE; --ok:#2E7D32; --warn:#B7791F; --bad:#C0392B;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--navy);font-size:14px}
+  header{background:var(--navy);color:#fff;padding:10px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  header .brand{font-size:20px;font-weight:bold}
+  header .sub{color:#9fb2c4;font-size:12px}
+  .badge-proto{background:var(--accent);color:#fff;font-size:11px;font-weight:bold;padding:3px 8px;border-radius:10px}
+  .banner{background:#FDECE7;border-bottom:1px solid #F3C9BE;color:#7d2e18;padding:7px 18px;font-size:12px}
+  .app{display:flex;min-height:calc(100vh - 92px)}
+  nav{width:240px;background:var(--panel);border-right:1px solid var(--line);padding:12px 0;flex:0 0 auto}
+  nav a{display:block;padding:10px 18px;color:var(--gray);text-decoration:none;cursor:pointer;border-left:3px solid transparent;font-size:13px}
+  nav a:hover{background:#F0F5F7;color:var(--navy)}
+  nav a.active{border-left-color:var(--teal);background:#EDF6F7;color:var(--navy);font-weight:bold}
+  main{flex:1;padding:18px 22px;overflow:auto}
+  h1{font-size:19px;margin:0 0 4px}
+  h3{margin:0 0 8px}
+  .hint{color:var(--gray);font-size:12px;margin:0 0 14px}
+  .chip{display:inline-block;background:#EDF1F5;color:var(--gray);border-radius:10px;padding:2px 8px;font-size:11px;margin-right:6px}
+  .chip.warn{background:#FDF3E2;color:var(--warn)}
+  .chip.bad{background:#FDECE7;color:var(--bad)}
+  .chip.ok{background:#E8F4E9;color:var(--ok)}
+  table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:top}
+  th{background:var(--navy);color:#fff;font-size:12px;font-weight:bold}
+  tr.clik{cursor:pointer}
+  tr.clik:hover td{background:#F0F5F7}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:16px;margin-bottom:14px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .kv{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed var(--line);font-size:13px}
+  .kv span:first-child{color:var(--gray)}
+  .ev{border-left:3px solid var(--teal);background:#FBFDFE;padding:10px 12px;margin-bottom:10px;border-radius:0 5px 5px 0}
+  .ev .src{color:var(--gray);font-size:11px}
+  button{font-family:inherit;font-size:12px;border:1px solid var(--line);background:#fff;color:var(--navy);padding:6px 10px;border-radius:5px;cursor:pointer}
+  button:hover{background:#F0F5F7}
+  .bar{height:10px;background:#EDF1F5;border-radius:5px;overflow:hidden;margin-top:4px}
+  .bar > i{display:block;height:100%;background:var(--teal)}
+  .cls{display:inline-block;min-width:52px;text-align:center;font-weight:bold;color:#fff;border-radius:5px;padding:3px 8px;font-size:12px}
+  .note{background:#FFF8E1;border:1px solid #F0E0A8;color:#6b5300;padding:8px 12px;border-radius:6px;font-size:12px;margin-bottom:12px}
+  .danger{background:#FDECE7;border:1px solid #F3C9BE;color:#7d2e18;padding:8px 12px;border-radius:6px;font-size:12px;margin-bottom:12px}
+  .scale td{font-family:Consolas,monospace}
+</style>
+</head>
+<body>
+<header>
+  <span class="brand">AgroControl</span>
+  <span class="sub">Рейтинг платёжного риска: внешний PD (S&P MI) + собственная история</span>
+  <span class="badge-proto">ПРОТОТИП · этап 2</span>
+</header>
+<div class="banner">Синтетические данные и демонстрационные значения. Внешний PD (S&P MI RiskGauge) показан вымышленными числами. Это не рейтинг агентства и не продукт.</div>
+
+<div class="app">
+  <nav id="nav">
+    <a data-v="overview" class="active">▤ Обзор рейтинга</a>
+    <a data-v="card">▣ Карточка рейтинга</a>
+    <a data-v="model">∑ Факторы и модель</a>
+    <a data-v="monitor">◉ Мониторинг изменений</a>
+    <a data-v="validation">✓ Валидация модели</a>
+    <a data-v="gate">⛔ Достаточность данных</a>
+  </nav>
+  <main id="view"></main>
+</div>
+
+<script>
+/* ==== Демонстрационные данные (вымышлены) ==== */
+const CLASSES=[
+ {c:'AC-A',pd:[0,0.5],color:'#2E7D32'},
+ {c:'AC-B',pd:[0.5,2],color:'#4C9A2A'},
+ {c:'AC-C',pd:[2,5],color:'#B7791F'},
+ {c:'AC-D',pd:[5,10],color:'#D97706'},
+ {c:'AC-E',pd:[10,20],color:'#D4593A'},
+ {c:'AC-F',pd:[20,45],color:'#C0392B'},
+ {c:'AC-G',pd:[45,100],color:'#7B241C'}
+];
+function clsFor(pd){for(const k of CLASSES) if(pd>=k.pd[0]&&pd<k.pd[1]) return k;return CLASSES[CLASSES.length-1];}
+
+const ROWS=[
+ {id:1,bin:'010240001234',name:'ТОО «АгроСнаб-Север»',debt:12400000,spPD:34.0,hist:'2 просрочки, DPD 45/120',bureau:'есть негатив >90 дней',pub:'реабилитация',own:null,gini:null},
+ {id:2,bin:'120340005678',name:'ТОО «Поле-Химия»',debt:3200000,spPD:1.2,hist:'платит в срок 3 года',bureau:'чистая история',pub:'смена руководителя',own:null,gini:null},
+ {id:3,bin:'850410300123',name:'ИП «Нурланов А.К.»',debt:1850000,spPD:12.5,hist:'задержки 10–30 дней',bureau:'без негатива',pub:'исп. производство',own:null,gini:null},
+ {id:4,bin:'070540009012',name:'ТОО «Жасыл Алаң»',debt:7600000,spPD:5.0,hist:'частичные оплаты',bureau:'есть негатив >90 дней',pub:'нет',own:null,gini:null},
+ {id:5,bin:'990640003456',name:'ТОО «АгроТрейд KZ»',debt:4100000,spPD:2.5,hist:'стабильно',bureau:'чистая история',pub:'нет',own:null,gini:null},
+ {id:6,bin:'150740007890',name:'ТОО «Дала-Агро»',debt:2300000,spPD:47.0,hist:'просрочка 90+ дней',bureau:'ликвидация',pub:'реабилитация',own:null,gini:null},
+ {id:7,bin:'030840001122',name:'ТОО «Хим-Агро Юг»',debt:5900000,spPD:8.0,hist:'задержки 5–15 дней',bureau:'нет данных',pub:'ограничение ЭСФ',own:null,gini:null}
+];
+const FACTORS=[
+ {n:'Платёжная дисциплина (собственная история)',w:30},
+ {n:'Просрочки >90 дней (кредитное бюро)',w:20},
+ {n:'Внешний PD (S&P MI RiskGauge)',w:20},
+ {n:'Публичные негативные события (КГД/ИП/суды)',w:20},
+ {n:'Прочие (смена руководителя, отрасль)',w:10}
+];
+const TRIGGERS=[
+ {c:1,t:'2026-10-11',x:'Событие KГД: реабилитация → пересчёт класса'},
+ {c:6,t:'2026-10-01',x:'Ликвидация по данным бюро → класс понижен'},
+ {c:4,t:'2026-10-08',x:'Негатив >90 дней → пересчёт'},
+ {c:2,t:'2026-10-07',x:'Смена руководителя → наблюдение, без пересчёта'}
+];
+const money=n=>n.toLocaleString('ru-RU')+' ₸';
+const esc=s=>String(s).replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
+
+/* ==== Экраны ==== */
+const screens={
+ overview(){
+  const rows=ROWS.map(r=>{
+    const k=clsFor(r.spPD), score=Math.round(r.spPD*1.1+ (r.bureau.includes('негатив')?8:0) + (r.pub&&r.pub!=='нет'?5:0));
+    return `<tr class="clik" onclick="openCard(${r.id})">
+      <td>${esc(r.name)}<div class="chip">${r.bin}</div></td>
+      <td>${money(r.debt)}</td>
+      <td><span class="cls" style="background:${k.color}">${k.c}</span></td>
+      <td>${r.spPD.toFixed(1)}% <div class="chip">S&amp;P MI (демо)</div></td>
+      <td>${score}</td></tr>`;
+  }).join('');
+  return `<h1>Обзор рейтинга портфеля</h1>
+  <p class="hint">Класс — <b>собственная оценка AgroControl</b>, не рейтинг агентства. Внешний PD показан демонстрационными значениями.</p>
+  <div class="danger">Модель условная: рейтинг строится только при достаточной истории. Значения ниже — иллюстрация, не результат.</div>
+  <table><thead><tr><th>Клиент / БИН</th><th>Долг</th><th>Класс</th><th>Внешний PD</th><th>Скор</th></tr></thead><tbody>${rows}</tbody></table>`;
+ },
+ card(){
+  const r=ROWS.find(x=>x.id===(currentClient||1)); const k=clsFor(r.spPD);
+  return `<h1>Карточка рейтинга: ${esc(r.name)}</h1>
+  <p class="hint">БИН ${r.bin} · долг ${money(r.debt)}</p>
+  <div class="grid">
+    <div class="card"><h3>Оценка</h3>
+      <div class="kv"><span>Класс (AgroControl)</span><span class="cls" style="background:${k.color}">${k.c}</span></div>
+      <div class="kv"><span>Внешний PD (S&amp;P MI, демо)</span><b>${r.spPD.toFixed(1)}%</b></div>
+      <div class="kv"><span>Горизонт</span><b>12 месяцев (кандидат)</b></div>
+      <div class="kv"><span>Outlook</span><b>${r.spPD>10?'негативный':'стабильный'}</b></div>
+      <div class="kv"><span>Оценка агентства?</span><span class="chip warn">нет — это оценка AgroControl</span></div>
+    </div>
+    <div class="card"><h3>Входные данные</h3>
+      <div class="kv"><span>История платежей</span><b>${esc(r.hist)}</b></div>
+      <div class="kv"><span>Кредитное бюро</span><b>${esc(r.bureau)}</b></div>
+      <div class="kv"><span>Публичные события</span><b>${esc(r.pub)}</b></div>
+    </div>
+  </div>
+  <div class="card"><h3>Что влияет на класс</h3>
+    ${FACTORS.map(f=>`<div class="kv"><span>${f.n}</span><span>${f.w}%</span></div><div class="bar"><i style="width:${f.w}%"></i></div>`).join('')}
+  </div>`;
+ },
+ model(){
+  return `<h1>Факторы и модель</h1>
+  <p class="hint">Методические принципы в стиле Fitch/S&amp;P: факторные веса, разделение through-the-cycle и point-in-time, мониторинг и outlook.</p>
+  <div class="note">Сами оценки агентств не копируются: Fitch/S&amp;P рейтингуют эмитентов (крупные банки, sovereign), а не покупателей пестицидов. Заимствуем формат и дисциплину.</div>
+  <div class="grid">
+    <div class="card"><h3>Веса факторов</h3>
+      ${FACTORS.map(f=>`<div class="kv"><span>${f.n}</span><b>${f.w}%</b></div>`).join('')}
+    </div>
+    <div class="card"><h3>Шкала (AgroControl)</h3>
+      <table class="scale"><thead><tr><th>Класс</th><th>PD, демо</th></tr></thead><tbody>
+      ${CLASSES.map(k=>`<tr><td><span class="cls" style="background:${k.color}">${k.c}</span></td><td>${k.pd[0]}–${k.pd[1]}%</td></tr>`).join('')}
+      </tbody></table>
+    </div>
+  </div>
+  <div class="card"><h3>Внешний PD (S&amp;P MI RiskGauge)</h3>
+    <p class="hint">Используется как <b>вход-признак</b>, не как готовый рейтинг. Покрытие казахстанских частных компаний и цена договора не подтверждены — проверяются до фиксации бюджета. Данные не перепродаются.</p>
+  </div>`;
+ },
+ monitor(){
+  return `<h1>Мониторинг изменений рейтинга</h1>
+  <p class="hint">Событие → пересчёт класса или постановка под наблюдение. Решение принимает человек.</p>
+  ${TRIGGERS.map(t=>{const c=ROWS.find(r=>r.id===t.c);return `<div class="ev"><div class="chip warn">${t.t}</div> <b>${esc(c.name)}</b><div class="src">${esc(t.x)}</div></div>`;}).join('')}`;
+ },
+ validation(){
+  return `<h1>Валидация модели</h1>
+  <p class="hint">Независимая проверка: дискриминация, калибровка, устойчивость по периодам. Значения — демонстрационные.</p>
+  <div class="grid">
+    <div class="card"><h3>Дискриминация</h3>
+      <div class="kv"><span>Gini (демо)</span><b>0.42</b></div>
+      <div class="kv"><span>KS (демо)</span><b>0.31</b></div>
+    </div>
+    <div class="card"><h3>Калибровка и устойчивость</h3>
+      <div class="kv"><span>Отклонение PD (демо)</span><b>приемлемо</b></div>
+      <div class="kv"><span>Out-of-time период</span><b>проверен</b></div>
+    </div>
+  </div>
+  <div class="danger">Это иллюстрация, а не результат реальной модели. Точность до испытаний не обещается; качество подтверждается только на данных заказчика.</div>`;
+ },
+ gate(){
+  return `<h1>Достаточность данных</h1>
+  <div class="danger">Наблюдаемых исходов: <b>37</b> &lt; порога <b>100</b>. Статистическая модель <b>не запускается</b>.</div>
+  <div class="card"><h3>Что работает при недостатке исходов</h3>
+    <p class="hint">Экспертные правила и группы риска с объяснением факторов. Группа риска не называется вероятностью дефолта. Решение о статистической модели откладывается до накопления истории.</p>
+    <div class="kv"><span>Накопление истории</span><b>не входит в срок реализации</b></div>
+    <div class="kv"><span>Решение о шаге «модель»</span><b>отдельное, после аудита данных</b></div>
+  </div>
+  <div class="note">500 клиентов не гарантируют достаточную выборку: важны число просрочек, повторные сделки, годы наблюдений, полнота. Сезонность и частичные оплаты требуют отдельной проверки.</div>`;
+ }
+};
+
+let currentClient=1;
+function openCard(id){currentClient=id;render('card');}
+function render(v){
+  const view=document.getElementById('view');
+  view.innerHTML=`<div class="chip">Прототип · синтетические данные</div><div class="chip">Не продукт</div>${screens[v]()}`;
+  document.querySelectorAll('#nav a').forEach(a=>a.classList.toggle('active',a.dataset.v===v));
+  view.scrollTop=0;
+}
+document.getElementById('nav').addEventListener('click',e=>{const a=e.target.closest('a');if(a)render(a.dataset.v);});
+render('overview');
+</script>
+</body>
+</html>
