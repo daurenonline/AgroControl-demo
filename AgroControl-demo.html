@@ -78,7 +78,7 @@
     <select id="manager" onchange="onManager()" style="font-size:12px;display:none"></select>
     <div class="stages">
     <button id="tab-s1" onclick="setStage('s1')">Этап 1 · Мониторинг</button>
-    <button id="tab-s2" onclick="setStage('s2')">Этап 2 · Рейтинг</button>
+    <button id="tab-s2" onclick="setStage('s2')">Этап 2 · Оценка компании</button>
   </div>
 </header>
 <main>
@@ -155,19 +155,28 @@
     </div>
   </div>
 
-  <!-- STAGE 2 -->
+  <!-- STAGE 2: ОЦЕНКА КОМПАНИИ -->
   <div id="stage2" style="display:none">
-    <div class="danger-box">Рейтинг — условный второй этап: строится при достаточной истории платежей. Внешний PD (S&amp;P MI) — демонстрационные значения. Класс — собственная оценка AgroControl, не рейтинг агентства. Порог: 37 исходов &lt; 100 → модель не запускается.</div>
+    <div class="danger-box">Оценка компании — по <b>загруженной отчётности</b> (ОДДС, Баланс, Активы, ОПиУ). Демонстрационные данные; в пилоте — выгрузка из 1С/МСФО. Класс — собственная оценка AgroControl, не рейтинг агентства.</div>
     <div class="two">
       <section class="panel">
-        <div class="ph"><div><h2 class="pt">Рейтинг первых 60 клиентов (демо)</h2><span class="s">Клик — карточка рейтинга</span></div></div>
-        <div class="tbl-wrap"><table><thead><tr><th>Клиент / БИН</th><th>Долг</th><th>Класс</th><th>Внешний PD</th><th>Скор</th></tr></thead><tbody id="ratingRows"></tbody></table></div>
+        <div class="ph"><div><h2 class="pt">Загрузка отчётности</h2><span class="s">Выберите компанию и загрузите данные</span></div></div>
+        <div class="toolbar">
+          <select id="evalSel" onchange="renderEval()" style="flex:1"></select>
+          <button class="primary" onclick="fakeUpload()">⬆ Загрузить отчётность (демо)</button>
+        </div>
+        <div id="evalInputs" class="tbl-wrap" style="max-height:none"></div>
+        <div id="evalMemo" style="margin-top:10px"></div>
       </section>
       <section class="panel">
-        <div class="ph"><div><h2 class="pt" id="rTitle">Карточка рейтинга</h2><span class="s" id="rSub">Выберите клиента</span></div></div>
-        <div id="rBody"><p style="color:var(--muted)">Нажмите строку слева.</p></div>
+        <div class="ph"><div><h2 class="pt">Результат оценки</h2><span class="s" id="evalSub"></span></div></div>
+        <div id="evalResult"><p style="color:var(--muted)">Загрузите отчётность — появится оценка.</p></div>
       </section>
     </div>
+    <section class="panel">
+      <div class="ph"><div><h2 class="pt">Оценка портфеля</h2><span class="s">По загруженным данным (демо — первые 60)</span></div></div>
+      <div class="tbl-wrap"><table><thead><tr><th>Компания / БИН</th><th>Долг</th><th>Класс</th><th>Скор</th><th>Данные</th></tr></thead><tbody id="evalRows"></tbody></table></div>
+    </section>
   </div>
 
   <!-- SIGNALS -->
@@ -375,7 +384,10 @@ function renderCard(){
    <div style="margin-top:8px"><button class="primary" onclick="decideClient(${c.id})">Зафиксировать решение</button></div>
    <div class="ph" style="margin:12px 0 6px"><h3 class="pt" style="font-size:13px">Связаться — агент готовит обращение</h3></div>
    <div style="font-size:12px;background:#f7fafc;border:1px solid var(--line);border-radius:6px;padding:8px">${esc(draftText(c))}</div>
-   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${contactButtons(c)}<button onclick="logContact(${c.id})">Зафиксировать отправку</button></div>`;
+   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${contactButtons(c)}<button onclick="logContact(${c.id})">Зафиксировать отправку</button></div>
+   <div class="ph" style="margin:12px 0 6px"><h3 class="pt" style="font-size:13px">Шаблон письма (формирует агент)</h3></div>
+   <textarea id="letterBox" style="width:100%;height:130px;font-size:12px;font-family:Arial">${esc(letterText(c))}</textarea>
+   <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><button onclick="copyText(letterText(C(${c.id})))">Скопировать письмо</button><button onclick="logContact(${c.id})">Зафиксировать отправку письма</button></div>`;
 }
 function decideClient(id){const c=C(id);const reason=prompt('Решение/комментарий (в журнал):','Связаться с клиентом по просрочке');if(reason===null)return;DB.decisions.unshift({c:id,t:nowStr(),by:c.user,act:'Подтверждено',reason:reason});save();renderJournal();alert('Сохранено в журнал.');}
 
@@ -395,6 +407,20 @@ function contactButtons(c){
     <a class="pill b" style="text-decoration:none" target="_blank" href="https://t.me/${m.tg}">Telegram</a>`;
 }
 function logContact(cid){const c=C(cid);DB.decisions.unshift({c:cid,t:nowStr(),by:'Агент → менеджер',act:'Обращение отправлено',reason:draftText(c)});save();renderJournal();alert('Зафиксировано в журнале: обращение подготовлено агентом и отправлено менеджером.');}
+function letterText(c){
+  const col=colorOf(c);
+  return `Уважаемый(ая) __________________!
+
+По данным мониторинга AgroControl на ${today()}, по компании ${c.name} (БИН ${c.bin}) числится задолженность ${money(c.debt)} ₸ со сроком оплаты ${c.due}${(c.dpd||0)>0?` (просрочка ${c.dpd} дн.)`:''}.
+
+Просим в срок до ______ сообщить дату оплаты либо предоставить график погашения.
+
+${col==='red'?'При отсутствии ответа будем вынуждены приостановить дальнейшие поставки и передать вопрос на юридическую проверку.':'Благодарим за сотрудничество.'}
+
+С уважением,
+${c.user}`;
+}
+function copyText(t){try{navigator.clipboard.writeText(t);alert('Текст скопирован.');}catch(e){alert('Не удалось скопировать.');}}
 
 /* ====== AGENT ====== */
 const AGENT_SOURCES=[
@@ -471,6 +497,8 @@ function finishAgent(){
   const srcRows=AGENT_SOURCES.map(x=>{const cnt=s.srcCounts[x.k]||0;const st=x.ok?(cnt>=DB.clients.length?'полное покрытие':cnt>0?'частично':'нет'):'не подключено';const cl=x.ok?(cnt>=DB.clients.length?'g':cnt>0?'y':'r'):'r';return `<tr><td>${esc(x.k)}</td><td>${x.ok?cnt+' / '+DB.clients.length:'—'}</td><td><span class="pill ${cl}">${st}</span></td><td>${esc(x.note||'')}</td></tr>`;}).join('');
   const findRows=Object.entries(s.findings).sort((a,b)=>b[1]-a[1]).map(([t,n])=>`<tr><td>${esc(t)}</td><td style="text-align:center">${n}</td></tr>`).join('')||'<tr><td colspan="2" style="color:var(--muted)">Событий не найдено</td></tr>';
   const notChkList=s.notChecked.length?s.notChecked.slice(0,10).map(x=>`<li>${esc(x.name)} — ${esc(x.reason)}</li>`).join(''):'<li>Все компании проверены полностью.</li>';
+  const recs=DB.clients.filter(c=>['red','orange'].includes(colorOf(c))).sort((a,b)=>severity(a)-severity(b)||b.debt-a.debt).slice(0,5).map(c=>{const m=MANAGER_CONTACTS[c.user]||{};return `<li>${esc(c.name)} — ${ACTION[colorOf(c)]} · ${esc(c.user)} <a href="https://wa.me/${m.phone||''}" target="_blank" style="color:var(--teal)">WhatsApp</a> · <a href="javascript:openCard(${c.id})" style="color:var(--teal)">карточка</a></li>`;}).join('');
+  const docs=['Выписка из ГБД ЮЛ (учредители, руководитель)','Справка КГД о налоговой задолженности','Бухотчётность: Баланс, ОДДС, ОПиУ (для оценки компании)','Отчёт кредитного бюро (с согласия клиента)'];
   $('agentReport').innerHTML=`
    <div class="ph" style="margin-top:6px"><h3 class="pt" style="font-size:13px">Отчёт агента (${s.mode})</h3><span class="s">Обработано проверок: ${s.size} ≈ ${money(s.size*CHECK_COST)} · внутри проверки — несколько источников</span></div>
    <div class="two" style="gap:14px">
@@ -481,11 +509,15 @@ function finishAgent(){
        <div style="font-size:12.5px">Полностью: <b>${s.full}</b> · частично: <b>${s.partial}</b> · <b>не проверено: ${s.notChecked.length}</b></div>
        <div style="font-weight:700;font-size:12px;margin:10px 0 4px">Кого не проверил</div>
        <ul style="font-size:12px;margin:0;padding-left:18px">${notChkList}</ul>
+       <div style="font-weight:700;font-size:12px;margin:12px 0 4px">3. Документы, которые запрашивает агент</div>
+       <ul style="font-size:12px;margin:0;padding-left:18px">${docs.map(d=>`<li>${esc(d)}</li>`).join('')}</ul>
+       <div style="font-weight:700;font-size:12px;margin:12px 0 4px">4. Кому позвонить / написать (приоритет)</div>
+       <ul style="font-size:12px;margin:0;padding-left:18px">${recs||'<li>Критичных нет.</li>'}</ul>
      </div>
      <div>
-       <div style="font-weight:700;font-size:12px;margin-bottom:6px">3. Что выявлено</div>
+       <div style="font-weight:700;font-size:12px;margin-bottom:6px">5. Что выявлено</div>
        <div class="tbl-wrap" style="max-height:none"><table class="risk"><thead><tr><th>Тип события</th><th style="text-align:center">Найдено</th></tr></thead><tbody>${findRows}</tbody></table></div>
-       <div style="font-weight:700;font-size:12px;margin:12px 0 6px">4. Итог по цветам</div>
+       <div style="font-weight:700;font-size:12px;margin:12px 0 6px">6. Итог по цветам</div>
        <div style="font-size:12.5px"><span class="dot g"></span>${s.col.green} в срок · <span class="dot y"></span>${s.col.yellow} ≤3 дн · <span class="dot o"></span>${s.col.orange} 4–7 дн · <span class="dot r"></span>${s.col.red} критично</div>
        <div style="font-size:12.5px;margin-top:6px">Долг в зоне риска (🟠+🔴): <b>${mln(k.riskDebt)}</b></div>
        <div class="note" style="margin-top:8px">Судебные дела массово не покрыты (нужна точечная проверка с ЭЦП). Отсутствие записи ≠ отсутствие риска.</div>
@@ -508,18 +540,48 @@ function renderSources(){$('srcRows').innerHTML=DB.sources.map(s=>{const b=s.sta
 function renderTasks(){$('taskBody').innerHTML=DB.tasks.map(x=>{const c=C(x.c);return `<div style="font-size:12px;padding:6px 0;border-bottom:1px solid #eef1f4"><input type="checkbox" ${x.done?'checked':''} onchange="toggleTask('${esc(x.title)}',${x.c})"> ${esc(x.title)}<div style="color:var(--muted);font-size:11px">${esc(c?c.name:'—')} · ${esc(x.owner)} · до ${x.due}</div></div>`;}).join('');}
 function toggleTask(t,cid){const x=DB.tasks.find(z=>z.title===t&&z.c===cid);if(x){x.done=!x.done;save();renderTasks();}}
 
-/* ====== STAGE 2 ====== */
-const CLASSES=[{c:'AC-A',pd:[0,0.5],color:'#2E7D32'},{c:'AC-B',pd:[0.5,2],color:'#4C9A2A'},{c:'AC-C',pd:[2,5],color:'#B7791F'},{c:'AC-D',pd:[5,10],color:'#D97706'},{c:'AC-E',pd:[10,20],color:'#D4593A'},{c:'AC-F',pd:[20,45],color:'#C0392B'},{c:'AC-G',pd:[45,100],color:'#7B241C'}];
-const baseClass=pd=>CLASSES.find(k=>pd>=k.pd[0]&&pd<k.pd[1])||CLASSES[CLASSES.length-1];
-function ratingClass(c){let k=baseClass(c.spPD);let i=CLASSES.findIndex(x=>x.c===k.c);if(colorOf(c)==='red')i=Math.max(i,5);if(colorOf(c)==='orange')i=Math.max(i,4);return CLASSES[Math.min(i,6)];}
-function renderRating(){
-  const list=DB.clients.slice(0,60);
-  $('ratingRows').innerHTML=list.map(c=>{const k=ratingClass(c);return `<tr class="${current===c.id?'sel':''}" onclick="openRating(${c.id})"><td>${esc(c.name)}<div style="color:var(--muted);font-size:11px">${c.bin}</div></td><td>${money(c.debt)}</td><td><span class="pill" style="background:${k.color};color:#fff">${k.c}</span></td><td>${c.spPD.toFixed(1)}% <span style="color:var(--muted);font-size:10px">S&amp;P MI (демо)</span></td><td>${Math.round(c.spPD*1.1)}</td></tr>`;}).join('');
+/* ====== STAGE 2: ОЦЕНКА КОМПАНИИ ====== */
+const CLASSES=[{c:'AC-A',s:85,color:'#2E7D32'},{c:'AC-B',s:70,color:'#4C9A2A'},{c:'AC-C',s:55,color:'#B7791F'},{c:'AC-D',s:40,color:'#D97706'},{c:'AC-E',s:25,color:'#D4593A'},{c:'AC-F',s:10,color:'#C0392B'},{c:'AC-G',s:0,color:'#7B241C'}];
+function classByScore(s){return CLASSES.find(k=>s>=k.s)||CLASSES[CLASSES.length-1];}
+const FIN={};
+function ensureFin(c){
+  if(FIN[c.id])return FIN[c.id];
+  const seedv=((c.id*2654435761)%1000)/1000;
+  const rev=Math.round(c.debt*(3+seedv*4)/1e6)*1e6;
+  const ocf=Math.round(rev*(0.06+seedv*0.14)/1e6)*1e6;
+  const assets=Math.round(rev*(1.1+seedv*1.2)/1e6)*1e6;
+  const equity=Math.round(assets*(0.25+seedv*0.35)/1e6)*1e6;
+  const debt=Math.round(c.debt*(0.6+seedv)/1e6)*1e6;
+  const ca=Math.round(assets*(0.35+seedv*0.3)/1e6)*1e6;
+  const cl=Math.round(ca/(0.9+seedv*1.1)/1e6)*1e6;
+  const np=Math.round(rev*(0.02+seedv*0.08)/1e6)*1e6;
+  FIN[c.id]={rev,ca,cl,assets,equity,debt,ocf,np,loaded:false};
+  return FIN[c.id];
 }
-function openRating(id){current=id;setStage('s2');renderRatingCard();}
-function renderRatingCard(){const c=C(current);if(!c)return;const k=ratingClass(c);$('rTitle').textContent='Карточка рейтинга: '+c.name;$('rSub').textContent='БИН '+c.bin+' · долг '+money(c.debt);
-  $('rBody').innerHTML=`<div style="font-size:12.5px"><b>Класс:</b> <span class="pill" style="background:${k.color};color:#fff">${k.c}</span><br><b>Внешний PD (демо):</b> ${c.spPD.toFixed(1)}%<br><b>Горизонт:</b> 12 мес<br><b>Outlook:</b> ${c.spPD>10?'негативный':'стабильный'}<br><b>DPD:</b> ${c.dpd||0} дн<br><b>Оценка агентства:</b> нет</div>
-   <p style="margin-top:8px"><a href="javascript:openCard(${c.id})" style="color:var(--teal)">← Карточка мониторинга</a></p>`;}
+function sHi(v,b){return v>=b[0]?100:v>=b[1]?75:v>=b[2]?50:v>=b[3]?25:0;}
+function sLo(v,b){return v<=b[0]?100:v<=b[1]?75:v<=b[2]?50:v<=b[3]?25:0;}
+function evalScore(f){
+  const liq=f.cl?f.ca/f.cl:0, aut=f.assets?f.equity/f.assets:0, da=f.assets?f.debt/f.assets:1, cov=f.debt?f.ocf/f.debt:0, ros=f.rev?f.np/f.rev:0;
+  const parts=[sHi(liq,[2,1.5,1,0.7]),sHi(aut,[0.5,0.35,0.25,0.15]),sLo(da,[0.3,0.5,0.65,0.8]),sHi(cov,[0.5,0.3,0.15,0.05]),sHi(ros,[0.1,0.06,0.03,0.01])];
+  const score=Math.round(parts.reduce((a,b)=>a+b,0)/parts.length);
+  return {score,cls:classByScore(score),parts,m:{liq,aut,da,cov,ros}};
+}
+function fillEvalSel(){const sel=$('evalSel');if(!sel)return;sel.innerHTML=DB.clients.slice(0,60).map(c=>`<option value="${c.id}">${esc(c.name)} — ${mln(c.debt)}</option>`).join('');}
+function fakeUpload(){const c=C(+$('evalSel').value)||DB.clients[0];const f=ensureFin(c);const s=(c.id*9301)%7;['rev','ocf','assets','equity','debt','ca','cl','np'].forEach(k=>{f[k]=Math.round(f[k]*(1+((s-3)/50))/1e6)*1e6;});f.loaded=true;renderEval();alert('Отчётность загружена (демо): Баланс, ОДДС, ОПиУ, Активы.');}
+function onFin(id,k,v){const f=ensureFin(C(id));f[k]=+v||0;f.loaded=true;renderEval();}
+function renderEval(){
+  const sel=$('evalSel');if(!sel)return;const id=+sel.value||DB.clients[0].id;const c=C(id);const f=ensureFin(c);const r=evalScore(f);
+  const inp=(k,l)=>`<tr><td>${l}</td><td><input type="number" value="${f[k]}" onchange="onFin(${id},'${k}',this.value)" style="width:150px"></td></tr>`;
+  $('evalInputs').innerHTML=`<table class="risk"><thead><tr><th>Показатель отчётности</th><th>Значение, ₸</th></tr></thead><tbody>`+inp('rev','Выручка')+inp('np','Чистая прибыль')+inp('ocf','ОДДС: операционный поток')+inp('assets','Активы (итого)')+inp('equity','Собственный капитал')+inp('debt','Обязательства')+inp('ca','Оборотные активы')+inp('cl','Краткосрочные обязательства')+`</tbody></table>`;
+  $('evalSub').textContent=(f.loaded?'Данные загружены':'Демо-данные')+' · '+c.name;
+  const m=r.m,col=v=>v>=75?'var(--green)':v>=50?'var(--yellow)':v>=25?'var(--orange)':'var(--red)';
+  const met=(lbl,val,sc)=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid #eef1f4"><span>${lbl}</span><b style="color:${col(sc)}">${typeof val==='number'?val.toFixed(2):val}</b></div>`;
+  const weak=[['ликвидность',r.parts[0]],['автономия',r.parts[1]],['долг',r.parts[2]],['покрытие',r.parts[3]],['рентабельность',r.parts[4]]].filter(x=>x[1]<50).map(x=>x[0]).join(', ')||'нет';
+  $('evalResult').innerHTML=`<div style="text-align:center;margin-bottom:10px"><span class="pill" style="background:${r.cls.color};color:#fff;font-size:20px;padding:8px 20px">${r.cls.c}</span><div style="font-size:12px;color:var(--muted);margin-top:6px">Скор ${r.score}/100 · оценка AgroControl, не рейтинг агентства</div></div>`+met('Текущая ликвидность',m.liq,r.parts[0])+met('Автономия (капитал/активы)',m.aut,r.parts[1])+met('Долг/активы',m.da,r.parts[2])+met('Покрытие долга ОДДС',m.cov,r.parts[3])+met('Рентабельность (ЧП/выручка)',m.ros,r.parts[4])+`<div class="note" style="margin-top:10px">${r.score>=55?'Оценка умеренная/крепкая. ':r.score>=25?'Требует внимания: ':'Хронически слабая: '}слабые места — ${weak}.</div>`;
+}
+function renderRating(){const list=DB.clients.slice(0,60);$('evalRows').innerHTML=list.map(c=>{const f=ensureFin(c);const r=evalScore(f);return `<tr onclick="openRating(${c.id})"><td>${esc(c.name)}<div style="color:var(--muted);font-size:11px">${c.bin}</div></td><td>${mln(c.debt)}</td><td><span class="pill" style="background:${r.cls.color};color:#fff">${r.cls.c}</span></td><td>${r.score}</td><td>${f.loaded?'загружено':'демо'}</td></tr>`;}).join('');}
+function openRating(id){setStage('s2');const s=$('evalSel');if(s)s.value=String(id);renderEval();}
+function renderRatingCard(){}
 
 /* ====== BRIEF / EXPORT ====== */
 function toggleBrief(){const b=$('briefBox');if(b.style.display==='block'){b.style.display='none';return;}b.textContent=briefText();b.style.display='block';}
@@ -552,10 +614,10 @@ function renderQueue(){ const list=scopedClients().filter(c=>['red','orange','ye
 
 /* ====== NAV ====== */
 function setStage(s){$('tab-s1').classList.toggle('active',s==='s1');$('tab-s2').classList.toggle('active',s==='s2');$('stage1').style.display=s==='s1'?'block':'none';$('stage2').style.display=s==='s2'?'block':'none';}
-function renderAll(){renderKPI();renderTable();renderCard();renderJournal();renderRisks();renderSources();renderTasks();renderRating();renderRatingCard();renderEventsTop();renderPlan();renderQueue();renderAging();renderConc();}
+function renderAll(){renderKPI();renderTable();renderCard();renderJournal();renderRisks();renderSources();renderTasks();renderRating();renderEval();renderEventsTop();renderPlan();renderQueue();renderAging();renderConc();}
 
 /* ====== INIT ====== */
-fillRegions();fillManagers();renderAll();setStage('s1');
+fillRegions();fillManagers();fillEvalSel();renderAll();setStage('s1');
 </script>
 </body>
 </html>
