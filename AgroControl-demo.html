@@ -90,10 +90,14 @@
 
   <!-- AGENT -->
   <section class="panel">
-    <div class="ph"><div><h2 class="pt">Агент проверки портфеля</h2>
-      <span class="s">Автоматический проход по 500 компаниям: КГД → АИС ОИП → кредитное бюро → ГБД ЮЛ → цвет</span></div>
-      <button class="primary" id="runBtn" onclick="runAgent()">▶ Запустить агента</button>
+    <div class="ph"><div><h2 class="pt">Агент проверки · по графику</h2>
+      <span class="s">Проверки по календарю и риску, а не ежедневно по всем: КГД → АИС ОИП → бюро → ГБД ЮЛ. Лимит 200 запросов/сутки.</span></div>
+      <span style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="primary" id="runBtn" onclick="runAgent(false)">▶ План на сегодня</button>
+        <button id="runFullBtn" onclick="runAgent(true)">Полный скан (дорого)</button>
+      </span>
     </div>
+    <div id="planBox" class="note" style="margin-bottom:10px"></div>
     <div style="display:grid;grid-template-columns:1fr 320px;gap:14px" class="two">
       <div>
         <div class="bar"><i id="agentBar"></i></div>
@@ -171,7 +175,7 @@
 
 <script>
 'use strict';
-const LSKEY='agrocontrol-demo-v4';
+const LSKEY='agrocontrol-demo-v5';
 const $=id=>document.getElementById(id);
 const money=n=>n.toLocaleString('ru-RU')+' ₸';
 const mln=n=>(n/1e6).toLocaleString('ru-RU',{maximumFractionDigits:1})+' млн ₸';
@@ -214,7 +218,7 @@ function generate(){
     const due = off>=0 ? prevDay(off) : plusDay(-off);
     const dpd = off>0 ? off : 0;
     const debt = Math.round((12+r()*48)*1e6/500000)*500000; // 12–60 млн, шаг 0.5 млн
-    clients.push({id:i,name,bin,region,user,debt,due,dpd,spPD:Math.round((1+r()*46)*10)/10});
+    clients.push({id:i,name,bin,region,user,debt,due,dpd,lastCheck:prevDay(Math.floor(r()*45)),spPD:Math.round((1+r()*46)*10)/10});
     // события: чем больше просрочка, тем вероятнее
     let nEv=0, p= r();
     if(dpd>7) nEv = p<0.55?2:(p<0.85?1:0);
@@ -339,21 +343,48 @@ const AGENT_SOURCES=[
  {k:'ГБД ЮЛ',ok:true},
  {k:'Судебные дела',ok:false,note:'нет массового API — точечно, с ЭЦП'}
 ];
-let agentRunning=false, agentState=null;
-function runAgent(){
-  if(agentRunning)return;agentRunning=true;$('runBtn').disabled=true;
+/* ====== ПЛАНИРОВЩИК ПРОВЕРОК (график) ====== */
+const CHECK_LIMIT=200;   // запросов к источникам в сутки (ориентир тарифа ADATA PRO)
+const CHECK_COST=250;    // ₸ за один запрос к источнику (допущение)
+const ACTIVE_SOURCES=4;  // КГД, АИС ОИП, бюро, ГБД ЮЛ (суды не подключены)
+function cadence(c){const col=colorOf(c);return col==='red'?1:col==='orange'?3:col==='yellow'?7:30;}
+function addDays(iso,n){const d=new Date(iso+'T00:00:00');d.setDate(d.getDate()+n);return d.toISOString().slice(0,10);}
+function nextCheck(c){return c.lastCheck?addDays(c.lastCheck,cadence(c)):today();}
+function severity(c){const col=colorOf(c);return col==='red'?0:col==='orange'?1:col==='yellow'?2:3;}
+function plan(){
+  const due=DB.clients.filter(c=>nextCheck(c)<=today()).sort((a,b)=>severity(a)-severity(b)||b.debt-a.debt);
+  const selected=[],deferred=[];let checks=0;
+  for(const c of due){ if(checks+ACTIVE_SOURCES<=CHECK_LIMIT){selected.push(c);checks+=ACTIVE_SOURCES;} else deferred.push(c); }
+  const byColor={red:0,orange:0,yellow:0,green:0};due.forEach(c=>byColor[colorOf(c)]++);
+  const fullChecks=DB.clients.length*ACTIVE_SOURCES;
+  return {due:due.length,selected,deferred,checks,byColor,cost:checks*CHECK_COST,limit:CHECK_LIMIT,fullClients:DB.clients.length,fullChecks,fullCost:fullChecks*CHECK_COST};
+}
+function renderPlan(){
+  const p=plan();
+  const over=p.deferred.length?` <b>Отложено из-за лимита: ${p.deferred.length}</b> (низкий приоритет).`:'';
+  $('planBox').innerHTML=`<b>График:</b> 🔴 ежедневно · 🟠 2×/нед · 🟡 1×/нед · 🟢 1×/мес. `+
+    `Сегодня к проверке: <b>${p.due}</b> компаний (в план вошли <b>${p.selected.length}</b>, запросов ${p.checks}/${p.limit}, стоимость ≈ ${money(p.cost)}).${over}<br>`+
+    `Сравнение: ежедневный скан всех ${p.fullClients} = ${p.fullChecks} запросов/сутки ≈ ${money(p.fullCost)}/сутки — превышает лимит, дорого и не нужно.`;
+}
+
+function runAgent(full){
+  if(agentRunning)return;
+  const p=plan();
+  const list = full ? DB.clients.slice() : p.selected.slice();
+  if(!list.length){ alert('На сегодня плановых проверок нет.'); return; }
+  agentRunning=true;$('runBtn').disabled=true;$('runFullBtn').disabled=true;
   const log=$('agentLog');log.innerHTML='';$('agentBar').style.width='0%';$('agentReport').innerHTML='';
-  agentState={full:0,partial:0,notChecked:[],srcCounts:{},findings:{},checked:0,col:{green:0,yellow:0,orange:0,red:0}};
+  agentState={full:0,partial:0,notChecked:[],srcCounts:{},findings:{},checked:0,col:{green:0,yellow:0,orange:0,red:0},size:list.length,mode:full?'полный скан':'по графику'};
   AGENT_SOURCES.forEach(s=>agentState.srcCounts[s.k]=0);
-  addLogLine('m','Подключение к базам: '+AGENT_SOURCES.map(s=>s.k+(s.ok?' ✓':' ⚠')).join(' · '));
-  const list=DB.clients;let i=0;
+  addLogLine('m',(full?'ПОЛНЫЙ СКАН (дорого)':'ПЛАНОВЫЙ ОБХОД по графику')+` · компаний: ${list.length} · базы: `+AGENT_SOURCES.map(s=>s.k+(s.ok?' ✓':' ⚠')).join(' · '));
+  let i=0;
   const step=()=>{
-    if(i>=list.length){agentRunning=false;$('runBtn').disabled=false;finishAgent();return;}
+    if(i>=list.length){agentRunning=false;$('runBtn').disabled=false;$('runFullBtn').disabled=false;finishAgent();return;}
     const batch=Math.min(8,list.length-i);
     for(let k=0;k<batch;k++){processCompany(list[i++]);}
     $('agentBar').style.width=Math.round(i/list.length*100)+'%';
     const s=agentState;
-    $('agentKPI').innerHTML=`<span class="dot g"></span>${s.col.green} <span class="dot y"></span>${s.col.yellow} <span class="dot o"></span>${s.col.orange} <span class="dot r"></span>${s.col.red} · проверено ${s.checked}/${DB.clients.length} · не проверено ${s.notChecked.length}`;
+    $('agentKPI').innerHTML=`<span class="dot g"></span>${s.col.green} <span class="dot y"></span>${s.col.yellow} <span class="dot o"></span>${s.col.orange} <span class="dot r"></span>${s.col.red} · проверено ${s.checked}/${s.size} · не проверено ${s.notChecked.length}`;
     setTimeout(step,35);
   };
   setTimeout(step,50);
@@ -369,6 +400,7 @@ function processCompany(c){
   const found=eventsOf(c.id);
   found.forEach(e=>{agentState.findings[e.type]=(agentState.findings[e.type]||0)+1;});
   agentState.col[col]++;
+  c.lastCheck=today();
   addLogLine(col[0], `#${String(c.id).padStart(3,'0')} ${c.name} | КГД:${notChk?'✗':'OK'} АИС:${notChk?'—':'OK'} БЮРО:${(partial||notChk)?'—':'OK'} ГБД:${notChk?'—':'OK'} | DPD ${c.dpd||0}д`+(found.length?` | найдено: ${found.map(e=>e.type).join(', ')}`:'')+` → ${COLORLBL[col].toUpperCase()}`);
 }
 function addLogLine(cls,text){const log=$('agentLog');const d=document.createElement('div');d.className=cls;d.textContent=text;log.appendChild(d);while(log.childElementCount>250)log.removeChild(log.firstChild);log.scrollTop=log.scrollHeight;}
@@ -378,7 +410,7 @@ function finishAgent(){
   const findRows=Object.entries(s.findings).sort((a,b)=>b[1]-a[1]).map(([t,n])=>`<tr><td>${esc(t)}</td><td style="text-align:center">${n}</td></tr>`).join('')||'<tr><td colspan="2" style="color:var(--muted)">Событий не найдено</td></tr>';
   const notChkList=s.notChecked.length?s.notChecked.slice(0,10).map(x=>`<li>${esc(x.name)} — ${esc(x.reason)}</li>`).join(''):'<li>Все компании проверены полностью.</li>';
   $('agentReport').innerHTML=`
-   <div class="ph" style="margin-top:6px"><h3 class="pt" style="font-size:13px">Отчёт агента</h3><span class="s">Проход по ${DB.clients.length} компаниям</span></div>
+   <div class="ph" style="margin-top:6px"><h3 class="pt" style="font-size:13px">Отчёт агента (${s.mode})</h3><span class="s">Обработано компаний: ${s.size} · запросов к источникам ≈ ${s.size*ACTIVE_SOURCES} (${money(s.size*ACTIVE_SOURCES*CHECK_COST)})</span></div>
    <div class="two" style="gap:14px">
      <div>
        <div style="font-weight:700;font-size:12px;margin-bottom:6px">1. Базы данных, к которым зашёл агент</div>
@@ -398,7 +430,7 @@ function finishAgent(){
      </div>
    </div>`;
   DB.decisions.unshift({c:DB.clients[0].id,t:nowStr(),by:'Агент',act:'Проход завершён',reason:`Проверено ${s.checked}, не проверено ${s.notChecked.length}, критично ${s.col.red}`});
-  save();renderJournal();renderEventsTop();
+  save();renderJournal();renderEventsTop();renderPlan();
 }
 function renderEventsTop(){
   const top=DB.events.filter(e=>/Банкротство|>90|Исполнительное|Налоговая/.test(e.type)).slice(0,25);
@@ -438,7 +470,7 @@ function exportJSON(){const blob=new Blob([JSON.stringify(DB,null,2)],{type:'app
 
 /* ====== NAV ====== */
 function setStage(s){$('tab-s1').classList.toggle('active',s==='s1');$('tab-s2').classList.toggle('active',s==='s2');$('stage1').style.display=s==='s1'?'block':'none';$('stage2').style.display=s==='s2'?'block':'none';}
-function renderAll(){renderKPI();renderTable();renderCard();renderJournal();renderRisks();renderSources();renderTasks();renderRating();renderRatingCard();renderEventsTop();}
+function renderAll(){renderKPI();renderTable();renderCard();renderJournal();renderRisks();renderSources();renderTasks();renderRating();renderRatingCard();renderEventsTop();renderPlan();}
 
 /* ====== INIT ====== */
 fillRegions();renderAll();setStage('s1');
