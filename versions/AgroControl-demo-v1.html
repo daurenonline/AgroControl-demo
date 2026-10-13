@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgroControl — мониторинг и агент проверки (демо)</title>
+<style>
+  :root{--navy:#0e2538;--navy2:#163650;--teal:#088b90;--teal2:#067276;--bg:#f2f5f8;--card:#fff;--text:#132838;--muted:#5e7386;--line:#d8e2ea;
+    --green:#27ae60;--yellow:#e3b505;--orange:#e67e22;--red:#c0392b;--blue:#2980b9;--accent:#D4593A}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+  header{background:var(--navy);color:#fff;padding:12px 22px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;box-shadow:0 2px 10px rgba(0,0,0,.15)}
+  .brand{font-size:20px;font-weight:800;display:flex;align-items:center;gap:10px}
+  .brand small{display:block;font-size:11px;color:#9cb4c7;font-weight:400}
+  .badge{background:rgba(212,89,58,.22);border:1px solid var(--accent);color:#ffb9a6;padding:4px 10px;border-radius:20px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+  .stages{display:flex;gap:6px}
+  .stages button{background:var(--navy2);color:#cfe0ee;border:1px solid #2f5374;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer}
+  .stages button.active{background:var(--teal);color:#fff;border-color:var(--teal);font-weight:700}
+  main{max-width:1420px;margin:0 auto;padding:18px 22px}
+  .notice{background:#e6f4f5;border:1px solid #b7dfe2;border-radius:8px;padding:9px 14px;font-size:12.5px;color:#0b4548;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  .notice button{border:1px solid #8cc7cb;background:#fff;color:#0b4548;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:11px 13px;cursor:pointer}
+  .stat:hover{box-shadow:0 3px 10px rgba(0,0,0,.1)} .stat.active{box-shadow:0 0 0 2px var(--teal) inset}
+  .stat .lbl{font-size:10.5px;color:var(--muted);text-transform:uppercase;font-weight:700;letter-spacing:.3px}
+  .stat strong{display:block;font-size:21px;font-weight:800;margin-top:2px;color:var(--navy)}
+  .stat.g strong{color:var(--green)} .stat.y strong{color:var(--yellow)} .stat.o strong{color:var(--orange)} .stat.r strong{color:var(--red)}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.05);margin-bottom:16px}
+  .ph{display:flex;justify-content:space-between;align-items:center;gap:10px;border-bottom:1px solid var(--line);padding-bottom:9px;margin-bottom:12px;flex-wrap:wrap}
+  .pt{font-size:15px;font-weight:800;color:var(--navy);margin:0}
+  .ph span.s{font-size:11px;color:var(--muted)}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start} @media(max-width:1000px){.two{grid-template-columns:1fr}}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  input,select,textarea,button{font:inherit;border:1px solid var(--line);border-radius:6px;padding:7px 10px;background:#fff;color:var(--navy)}
+  input[type=search]{flex:1;min-width:140px}
+  button{cursor:pointer;font-weight:600} button:hover{background:#f0f4f7}
+  button.primary{background:var(--teal);color:#fff;border-color:var(--teal)} button.primary:hover{background:var(--teal2)}
+  button.outline{background:transparent;border-color:var(--teal);color:var(--teal)}
+  .tbl-wrap{overflow:auto;max-height:440px;border:1px solid var(--line);border-radius:8px}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{position:sticky;top:0;background:#f7fafc;color:var(--muted);font-weight:700;font-size:10.5px;text-transform:uppercase;padding:9px 8px;text-align:left;border-bottom:2px solid var(--line);z-index:2}
+  td{padding:8px;border-bottom:1px solid #edf2f6;vertical-align:top}
+  tbody tr{cursor:pointer} tbody tr:hover td{background:#f9fbfd} tbody tr.sel td{background:#eef7f8!important;box-shadow:inset 3px 0 0 var(--teal)}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:middle}
+  .dot.g{background:var(--green)} .dot.y{background:var(--yellow)} .dot.o{background:var(--orange)} .dot.r{background:var(--red)} .dot.b{background:var(--blue)}
+  .pill{display:inline-block;padding:2px 8px;border-radius:12px;font-size:10.5px;font-weight:700;white-space:nowrap}
+  .pill.g{background:#eaf8f0;color:#1e7a4d} .pill.y{background:#fdf7e0;color:#8a6d00} .pill.o{background:#fef2e6;color:#b06a12} .pill.r{background:#fdecea;color:#b3261e} .pill.b{background:#e8f4fb;color:#1a5f86}
+  .bar{height:10px;background:#e3ebf1;border-radius:5px;overflow:hidden}
+  .bar>i{display:block;height:100%;width:0;background:var(--teal);transition:width .12s linear}
+  #agentLog{font-family:Consolas,monospace;font-size:11.5px;background:#0e2538;color:#c8e6ea;border-radius:8px;padding:10px;height:190px;overflow:auto}
+  #agentLog .g{color:#7be0a0} #agentLog .y{color:#f2d675} #agentLog .o{color:#f0a860} #agentLog .r{color:#ff8a7a} #agentLog .m{color:#8fb0c4}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin-top:8px}
+  .timeline{list-style:none;padding:0;margin:0;max-height:260px;overflow:auto}
+  .timeline li{padding:7px 8px;border-bottom:1px solid #eef1f4;font-size:12px}
+  .timeline .tm{color:var(--muted);font-size:10.5px}
+  .risk td,.risk th{font-size:11.5px}
+  .rscore{display:inline-block;min-width:26px;text-align:center;padding:2px 6px;border-radius:6px;font-weight:800;font-size:11px}
+  .r-lo{background:#eaf8f0;color:#1e7a4d} .r-mid{background:#fef5e9;color:#b06a12} .r-hi{background:#fdecea;color:#b3261e} .r-crit{background:#b3261e;color:#fff}
+  .note{background:#FFF8E1;border:1px solid #F0E0A8;color:#6b5300;padding:8px 12px;border-radius:6px;font-size:12px;margin-bottom:12px}
+  .danger-box{background:#FDECE7;border:1px solid #F3C9BE;color:#7d2e18;padding:8px 12px;border-radius:6px;font-size:12px;margin-bottom:12px}
+  dialog{border:1px solid var(--line);border-radius:12px;padding:20px;max-width:520px;width:92%;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+  dialog::backdrop{background:rgba(14,37,56,.6)}
+  .brief{background:#fdfdfd;border:1px dashed var(--teal);border-radius:8px;padding:14px;font-size:12.5px;margin-bottom:14px;white-space:pre-wrap;display:none}
+  footer{max-width:1420px;margin:0 auto;padding:0 22px 26px;color:var(--muted);font-size:11px}
+  .author{display:grid;grid-template-columns:1fr 1fr;gap:20px} @media(max-width:800px){.author{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">AgroControl <span class="badge">демо · синтетика</span>
+    <small>Мониторинг контрагентов и платёжный риск для агробизнеса · портфель 500 компаний</small></div>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <select id="role" onchange="onRole()" style="font-size:12px">
+      <option value="risk">Роль: Риск-менеджер</option>
+      <option value="manager">Роль: Менеджер продаж</option>
+      <option value="investor">Роль: Инвестор</option>
+    </select>
+    <select id="manager" onchange="onManager()" style="font-size:12px;display:none"></select>
+    <div class="stages">
+    <button id="tab-s1" onclick="setStage('s1')">Этап 1 · Мониторинг</button>
+    <button id="tab-s2" onclick="setStage('s2')">Оценка · онбординг/пересмотр</button>
+  </div>
+</header>
+<main>
+  <div class="notice">
+    <span><strong>Демонстрационный контур:</strong> синтетические 500 компаний, интеграций с реальными источниками нет. Это не продукт. Цвет — по просрочке (DPD) и событиям. Этап 2 (рейтинг) — условный.</span>
+    <span style="display:flex;gap:6px;flex-wrap:wrap">
+      <button onclick="toggleBrief()">Справка</button>
+      <button onclick="exportJSON()">Экспорт JSON</button>
+      <button onclick="resetData()">Сброс</button>
+    </span>
+  </div>
+  <div class="brief" id="briefBox"></div>
+
+  <!-- KPI colors -->
+  <section class="stats" id="stats"></section>
+
+  <!-- AGENT -->
+  <section class="panel">
+    <div class="ph"><div><h2 class="pt">Агент проверки · по графику</h2>
+      <span class="s">Проверки по календарю и риску, а не ежедневно по всем: КГД → АИС ОИП → бюро → ГБД ЮЛ. Лимит 200 запросов/сутки.</span></div>
+      <span style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="primary" id="runBtn" onclick="runAgent(false)">▶ План на сегодня</button>
+        <button id="runFullBtn" onclick="runAgent(true)">Полный скан (дорого)</button>
+      </span>
+    </div>
+    <div id="planBox" class="note" style="margin-bottom:10px"></div>
+    <div style="display:grid;grid-template-columns:1fr 320px;gap:14px" class="two">
+      <div>
+        <div class="bar"><i id="agentBar"></i></div>
+        <div class="legend">
+          <span><span class="dot g"></span>в срок</span><span><span class="dot y"></span>просрочка ≤3 дн</span>
+          <span><span class="dot o"></span>просрочка 4–7 дн</span><span><span class="dot r"></span>просрочка &gt;7 дн / критичное событие</span>
+        </div>
+        <div id="agentKPI" class="legend" style="margin-top:10px;font-weight:700"></div>
+      </div>
+      <div id="agentLog"><span class="m">Агент не запущен. Нажмите «Запустить агента».</span></div>
+    </div>
+    <div id="agentReport" style="margin-top:14px"></div>
+  </section>
+
+  <!-- WORK QUEUE + CONCENTRATION -->
+  <div class="two" id="monExtra1">
+    <section class="panel" id="queuePanel">
+      <div class="ph"><div><h2 class="pt">Что делать сегодня (очередь действий)</h2><span class="s" id="queueSub"></span></div></div>
+      <div id="queueBody"></div>
+    </section>
+    <section class="panel">
+      <div class="ph"><div><h2 class="pt">Концентрация: топ-10 по долгу</h2><span class="s" id="concSub"></span></div></div>
+      <div id="concBody"></div>
+    </section>
+  </div>
+
+  <section class="panel" id="monExtra2">
+    <div class="ph"><div><h2 class="pt">Aging: дебиторка по сроку просрочки</h2><span class="s">Сколько денег в каком «ведре»</span></div></div>
+    <div id="agingBody"></div>
+  </section>
+
+  <!-- STAGE 1 -->
+  <div id="stage1">
+    <div class="two">
+      <section class="panel">
+        <div class="ph"><div><h2 class="pt">Реестр клиентов</h2><span class="s" id="tblCount"></span></div></div>
+        <div class="toolbar">
+          <input id="q" type="search" placeholder="Поиск: название, БИН, регион..." oninput="renderTable()">
+          <select id="fColor" onchange="renderTable()"><option value="all">Все цвета</option><option value="green">🟢 в срок</option><option value="yellow">🟡 ≤3 дн</option><option value="orange">🟠 4–7 дн</option><option value="red">🔴 &gt;7 дн / критично</option></select>
+          <select id="fRegion" onchange="renderTable()"><option value="all">Все регионы</option></select>
+        </div>
+        <div class="tbl-wrap"><table><thead><tr><th>Клиент / БИН</th><th>Регион</th><th>Долг</th><th>Срок</th><th>DPD</th><th>Статус</th><th>Менеджер продаж</th></tr></thead><tbody id="rows"></tbody></table></div>
+      </section>
+      <section class="panel">
+        <div class="ph"><div><h2 class="pt" id="cardTitle">Карточка контрагента</h2><span class="s" id="cardSub">Выберите клиента</span></div></div>
+        <div id="cardBody"><p style="color:var(--muted)">Нажмите строку в реестре.</p></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- КАБИНЕТ ОЦЕНКИ: АНКЕТА 5 C's (доступ: роль «Риск-менеджер») -->
+  <div id="stage2" style="display:none">
+    <div class="notice"><span><b>Кабинет оценки — анкета по открытой методике 5 C's of Credit.</b> Заполняется при <b>онбординге</b> и пересматривается в мониторинге. Оценка AgroControl, не рейтинг агентства.</span></div>
+    <section class="panel">
+      <div class="ph"><div><h2 class="pt">Стандарт методики</h2><span class="s">Выберите готовый стандарт или задайте свои веса</span></div></div>
+      <div id="cabSettings"></div>
+    </section>
+    <section class="panel">
+      <div class="ph"><div><h2 class="pt">Заявка на оценку</h2><span class="s" id="cabSub"></span></div>
+        <span style="display:flex;gap:6px;flex-wrap:wrap">
+          <select id="evalSel" onchange="renderEval()" style="min-width:280px"></select>
+          <button onclick="fakeUpload()">⬆ Загрузить отчётность</button>
+        </span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div class="bar" style="flex:1"><i id="cabProgress"></i></div><b id="cabProgressTxt" style="font-size:12px">0%</b></div>
+      <div id="cabForm" style="display:grid;grid-template-columns:1fr 1fr;gap:12px"></div>
+    </section>
+    <section class="panel">
+      <div class="ph"><div><h2 class="pt">Итог оценки</h2><span class="s">5 C's → класс и лимит</span></div></div>
+      <div id="cabResult"></div>
+    </section>
+    <section class="panel">
+      <div class="ph"><div><h2 class="pt">Заключение и решение</h2><span class="s">Для подписи; пишется в журнал</span></div></div>
+      <textarea id="cabMemo" style="width:100%;height:150px;font-size:12.5px" placeholder="Обоснование оценки, условия лимита..."></textarea>
+      <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+        <button class="primary" onclick="riskDecide('одобрено')">Одобрить лимит</button>
+        <button onclick="riskDecide('наблюдение')">Наблюдение</button>
+        <button class="acc" onclick="riskDecide('отказ')">Отказ</button>
+        <button onclick="cabMemoFill()">Заполнить тезисами</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- SIGNALS -->
+  <div class="two">
+    <section class="panel"><div class="ph"><div><h2 class="pt">Журнал решений (аудит)</h2><span class="s">Кто, когда, что и почему.</span></div></div><ul class="timeline" id="journal"></ul></section>
+    <section class="panel"><div class="ph"><div><h2 class="pt">Найденные события (top)</h2><span class="s">Из прохода агента</span></div></div><ul class="timeline" id="eventsTop"></ul></section>
+  </div>
+
+  <div class="two">
+    <section class="panel"><div class="ph"><div><h2 class="pt">Реестр рисков проекта</h2><span class="s">Вероятность × влияние</span></div></div>
+      <div class="tbl-wrap" style="max-height:280px"><table class="risk"><thead><tr><th>Риск</th><th style="text-align:center">В</th><th style="text-align:center">Вл</th><th style="text-align:center">Балл</th><th>Владелец</th></tr></thead><tbody id="riskRows"></tbody></table></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px">Балл = вероятность × влияние: 1–4 низкий · 5–9 средний · 10–14 высокий · 15–25 критичный. Это риски <b>проекта</b> (доступ к данным, цена, история, готовое решение), а не риски отдельных клиентов.</div></section>
+    <section class="panel"><div class="ph"><div><h2 class="pt">Реестр источников</h2><span class="s">Статус подтверждения</span></div></div>
+      <div class="tbl-wrap" style="max-height:280px"><table class="risk"><thead><tr><th>Источник</th><th>Что даёт</th><th>Статус</th></tr></thead><tbody id="srcRows"></tbody></table></div></section>
+  </div>
+
+  <section class="panel"><div class="ph"><div><h2 class="pt">Поручения со сроками</h2><span class="s">Что мешает и зависит от заказчика</span></div></div><div id="taskBody"></div></section>
+
+  <section class="panel" id="about">
+    <div class="ph"><div><h2 class="pt">Об авторе и правовая информация</h2></div></div>
+    <div class="author">
+      <div><p style="margin:0 0 6px;font-size:15px;font-weight:800;color:var(--navy)">Даурен Болатов</p>
+        <p style="margin:0 0 10px;font-size:12.5px;color:#4a5b6b">Автор прототипа <strong>AgroControl</strong>.</p>
+        <p style="margin:0;font-size:12.5px"><strong>Telegram:</strong> <a href="https://t.me/tlgrm_invest" style="color:var(--teal)">@tlgrm_invest</a><br><strong>Мобильный:</strong> <a href="tel:+77018880324" style="color:var(--teal)">+7 701 888 03 24</a></p></div>
+      <div><p style="margin:0;font-size:12px;color:#4a5b6b">© 2026 Даурен Болатов. Прототип на синтетических данных; не содержит сведений о реальных лицах и организациях. Суммы дебиторки и пороги DPD — допущения, редактируются в коде.</p></div>
+    </div>
+  </section>
+  <footer><strong style="color:var(--navy)">AgroControl</strong> · сборка <span style="font-family:monospace">v3</span> · демо: <a href="https://daurenonline.github.io/AgroControl-demo/" style="color:var(--teal)">daurenonline.github.io/AgroControl-demo</a> · синтетика</footer>
+</main>
+
+<script>
+'use strict';
+const LSKEY='agrocontrol-demo-v8';
+const $=id=>document.getElementById(id);
+const money=n=>n.toLocaleString('ru-RU')+' ₸';
+const mln=n=>(n/1e6).toLocaleString('ru-RU',{maximumFractionDigits:1})+' млн ₸';
+const esc=s=>String(s).replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
+const today=()=>new Date().toISOString().slice(0,10);
+const prevDay=n=>{const d=new Date();d.setDate(d.getDate()-n);return d.toISOString().slice(0,10);};
+const plusDay=n=>{const d=new Date();d.setDate(d.getDate()+n);return d.toISOString().slice(0,10);};
+const nowStr=()=>new Date().toLocaleString('ru-RU',{hour12:false}).replace(',','');
+
+/* ====== Допущения (редактируемые) ======
+   Пестициды ≈ 10 000–15 000 ₸/га; средняя площадь клиента ~2 000–3 000 га;
+   сезонный оборот на клиента ≈ 30–40 млн ₸ (2–3 поставки). Ниже — средняя дебиторка клиента. */
+const SEASON_PER_CLIENT=36_000_000; // средняя дебиторка на клиента, ₸ (допущение)
+const THRESH={y:3,o:7};             // DPD: <=3 жёлтый, 4–7 оранжевый, >7 красный
+
+/* ====== Псевдослучайный генератор (стабильные данные) ====== */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
+const TYPES=['ТОО','КХ','ФХ','АО','ИП'];
+const FARMS=['Астық','Бидай','Дала','Егін','Есіл','Тобыл','Сарыарқа','Тұран','Арай','Нұр','Ақжол','Береке','Көктем','Жетісу','Сырдария','Алтын','Мадина','Кенже','Ертіс','Шанырақ','Ақжайық','Ақбидай','Аққу','Алғыс','Аруана','Асыл','Атамекен','Баян','Бәйтерек','Гаухар','Жайлау','Жасыл','Жеңіс','Керуен','Көктөбе','Қайсар','Мақсат','Наурыз','Отан','Сарыағаш','Сұңқар','Тұмар','Ұлан'];
+const LOCALS=['Акколь','Атбасар','Целиноград','Аршалы','Есиль','Жаркаин','Зеренда','Астраханка','Карасу','Тобол','Сарыколь','Фёдоровка','Узунколь','Карабалык','Мендыкара','Шортанды','Бурабай','Щучинск','Костанай','Рудный','Лисаковск','Аркалык','Житикара'];
+const FARMSUF=['Агро','Агрофирма','Егін','Дала','Астық'];
+const SURNAMES=['Мухамедов','Ермеков','Смагулов','Кабылов','Нурланов','Оспанов','Ахметов','Ибраев','Жумабаев','Сеитов','Тлеубаев','Абдрахманов'];
+const REGIONS=['Акмолинская','Костанайская','Северо-Казахстанская','Карагандинская','Восточно-Казахстанская','Алматинская','Жамбылская','Туркестанская','Актюбинская','Западно-Казахстанская','Павлодарская','Кызылординская'];
+const USERS=['Менеджер А. Ермеков (Акмолинская)','Менеджер Д. Смагулов (Костанай)','Менеджер Ж. Кабылов (СКО)','Менеджер Е. Мукашев (Караганда)'];
+/* Контакты менеджеров (синтетика). В пилоте — из CRM. */
+const MANAGER_CONTACTS={
+ 'Менеджер А. Ермеков (Акмолинская)':{phone:'77010000001',tg:'ermekov_sales'},
+ 'Менеджер Д. Смагулов (Костанай)':{phone:'77010000002',tg:'smagulov_sales'},
+ 'Менеджер Ж. Кабылов (СКО)':{phone:'77010000003',tg:'kabylov_sales'},
+ 'Менеджер Е. Мукашев (Караганда)':{phone:'77010000004',tg:'mukashev_sales'}
+};
+const SRC=['КГД','АИС ОИП','Кредитное бюро','ГБД ЮЛ'];
+const EVT=['Налоговая задолженность','Исполнительное производство','Негативная информация (>90 дней)','Смена руководителя','Ограничение выписки ЭСФ','Банкротство/реабилитация'];
+
+function generate(){
+  const r=mulberry32(20261013); const clients=[],events=[]; let eid=1; const usedNames=new Set();
+  for(let i=1;i<=500;i++){
+    const t=TYPES[Math.floor(r()*TYPES.length)];
+    const isIP=(t==='ИП') || r()<0.12;
+    let name;
+    if(isIP){ const s=SURNAMES[Math.floor(r()*SURNAMES.length)]; name=`ИП «${s}» (КХ)`; }
+    else { const a=FARMS[Math.floor(r()*FARMS.length)]; const b=r()<0.55?FARMSUF[Math.floor(r()*FARMSUF.length)]:''; name=`${t} «${b? a+'-'+b : a}»`; }
+    if(usedNames.has(name)){ name=name.replace('»',` · ${LOCALS[Math.floor(r()*LOCALS.length)]}»`); }
+    let base=name,k=2; while(usedNames.has(name)){ name=base.replace('»',`-${k}»`); k++; }
+    usedNames.add(name);
+    const bin=String(Math.floor(r()*9e11)+1e11).slice(0,12);
+    const region=REGIONS[Math.floor(r()*REGIONS.length)];
+    const user=USERS[Math.floor(r()*USERS.length)];
+    // распределение просрочки: 60% в срок/ожидает, 15% 1–3, 12% 4–7, 13% >7
+    const q=r(); let off; // off>0 => due в прошлом
+    if(q<0.60) off=Math.floor(r()*40)-30;      // от -30 до +9 (в основном будущие)
+    else if(q<0.75) off=1+Math.floor(r()*3);    // 1–3
+    else if(q<0.87) off=4+Math.floor(r()*4);    // 4–7
+    else off=8+Math.floor(r()*35);              // 8–42
+    const due = off>=0 ? prevDay(off) : plusDay(-off);
+    const dpd = off>0 ? off : 0;
+    const debt = Math.round((12+r()*48)*1e6/500000)*500000; // 12–60 млн, шаг 0.5 млн
+    clients.push({id:i,name,bin,region,user,debt,due,dpd,lastCheck:prevDay(Math.floor(r()*45)),spPD:Math.round((1+r()*46)*10)/10});
+    // события: чем больше просрочка, тем вероятнее
+    let nEv=0, p= r();
+    if(dpd>7) nEv = p<0.55?2:(p<0.85?1:0);
+    else if(dpd>=4) nEv = p<0.35?1:0;
+    else if(dpd>=1) nEv = p<0.15?1:0;
+    else nEv = p<0.05?1:0;
+    for(let k=0;k<nEv;k++){
+      const src=SRC[Math.floor(r()*SRC.length)];
+      const type= src==='КГД' ? (r()<0.3?'Банкротство/реабилитация':(r()<0.6?'Налоговая задолженность':'Ограничение выписки ЭСФ'))
+                : src==='АИС ОИП' ? 'Исполнительное производство'
+                : src==='Кредитное бюро' ? 'Негативная информация (>90 дней)' : 'Смена руководителя';
+      events.push({id:eid++,c:i,type,src,date:prevDay(Math.floor(r()*20)),evi:evidence(type,src)});
+    }
+  }
+  return {version:3,clients,events,decisions:[{c:3,t:prevDay(8)+' 11:20',by:'Менеджер Ж. Кабылов (СКО)',act:'Подтверждено',reason:'Запросить график платежа'}],
+    tasks:[
+      {c:1,title:'Запросить КП у ПКБ/ГБК по B2B-доступу',owner:'Инициатор',due:plusDay(10),done:false},
+      {c:1,title:'Юрзаключение: ст. 20 пп. 2) Закона № 573-II',owner:'Юрист',due:plusDay(14),done:false},
+      {c:2,title:'Запросить КП ADATA/Kompra (API)',owner:'Инициатор',due:plusDay(12),done:false},
+      {c:4,title:'Проверить покрытие KZ в S&P MI RiskGauge',owner:'Инициатор',due:plusDay(20),done:false},
+      {c:5,title:'8–12 интервью с поставщиками',owner:'Инициатор',due:plusDay(25),done:false}
+    ],
+    risks:[{title:'Доступ и цена данных не подтверждены',p:4,i:5,owner:'Инициатор'},{title:'Запрет перепродажи сырых данных бюро',p:3,i:4,owner:'Юрист'},
+      {title:'Готовое решение (ADATA/Kompra) выгоднее',p:3,i:4,owner:'Инвестор'},{title:'Недостаток истории для рейтинга',p:4,i:5,owner:'Инициатор'},
+      {title:'Покрытие казахстанских компаний в S&P MI',p:3,i:3,owner:'Аналитик'},{title:'Рост стоимости подрядчиков',p:3,i:3,owner:'Инвестор'}],
+    sources:[
+      {name:'КГД — сервисы и API',url:'portal.kgd.gov.kz',what:'Задолженность, банкротство, ликвидации, НДС',status:'подтверждено'},
+      {name:'АИС ОИП Минюста',url:'aisoip.adilet.gov.kz',what:'Должники, запреты (аресты) по БИН',status:'подтверждено'},
+      {name:'Кредитное бюро ПКБ',url:'1cb.kz',what:'ККО, негатив >90 дней, мониторинг',status:'подтверждено'},
+      {name:'Кредитное бюро ГКБ',url:'mkb.kz',what:'ККО, негатив; SOAP API',status:'подтверждено'},
+      {name:'ГБД ЮЛ',url:'egov.kz',what:'Учредители, руководитель, статус',status:'частично'},
+      {name:'Судебные дела',url:'sud.gov.kz',what:'Банк актов; поиск по БИН ограничен',status:'частично'},
+      {name:'Бенефициары (АФМ)',url:'—',what:'Реестр закрыт',status:'не подтверждено'},
+      {name:'S&P MI RiskGauge',url:'spglobal.com',what:'Внешний PD по частным компаниям',status:'не подтверждено'},
+      {name:'Агрегаторы ADATA/Kompra',url:'adata.kz / kompra.kz',what:'Проверки контрагентов; API отдельно',status:'подтверждено'}
+    ]};
+}
+function evidence(type,src){
+  if(type.indexOf('Банкротство')>=0) return 'Внесена запись о процедуре реабилитации/банкротства (выгрузка КГД).';
+  if(type.indexOf('Налоговая')>=0) return 'Наличие налоговой задолженности по данным КГД.';
+  if(type.indexOf('ЭСФ')>=0) return 'Произведено ограничение выписки ЭСФ.';
+  if(type.indexOf('Исполнительное')>=0) return 'Возбуждено исполнительное производство; сумма в реестре отсутствует.';
+  if(type.indexOf('Негативная')>=0) return 'Просрочка свыше 90 дней (негатив выдаётся без согласия субъекта).';
+  return 'Изменён первый руководитель (ГБД ЮЛ). Может быть обычным событием.';
+}
+
+/* ====== STATE ====== */
+let DB=load(); let filter={kpi:'all',color:'all',region:'all',q:''}; let current=null; let role='risk', manager=null; let stage='s1';
+function load(){try{const r=localStorage.getItem(LSKEY);if(r)return JSON.parse(r);}catch(e){}const s=generate();try{localStorage.setItem(LSKEY,JSON.stringify(s));}catch(e){}return s;}
+function save(){try{localStorage.setItem(LSKEY,JSON.stringify(DB));}catch(e){}}
+function resetData(){if(confirm('Сбросить демо (500 компаний, синтетика)?')){localStorage.removeItem(LSKEY);DB=generate();save();current=1;renderAll();}}
+
+/* ====== LOGIC: цвет ====== */
+const C=id=>DB.clients.find(c=>c.id===id);
+const eventsOf=id=>DB.events.filter(e=>e.c===id);
+function hasCritical(id){return eventsOf(id).some(e=>/Банкротство|Ликвидац|>90/.test(e.type));}
+function colorOf(c){
+  if(hasCritical(c.id)) return 'red';
+  const d=c.dpd||0;
+  if(d<=0) return 'green';
+  if(d<=THRESH.y) return 'yellow';
+  if(d<=THRESH.o) return 'orange';
+  return 'red';
+}
+const COLORLBL={green:'в срок',yellow:'просрочка ≤3 дн',orange:'просрочка 4–7 дн',red:'критично (>7 дн/событие)'};
+function lateDays(c){return c.dpd||0;}
+
+/* ====== KPI ====== */
+function kpis(list){
+  list = list || DB.clients;
+  let g=0,y=0,o=0,rd=0,debt=0,riskDebt=0;
+  list.forEach(c=>{const col=colorOf(c);debt+=c.debt; if(col==='green')g++;else if(col==='yellow')y++;else if(col==='orange')o++;else{rd++;riskDebt+=c.debt;}});
+  const critEvents=DB.events.filter(e=>/Банкротство|>90/.test(e.type)).length;
+  return {g,y,o,rd,debt,riskDebt,critEvents,total:list.length,portfolio:list.length*SEASON_PER_CLIENT};
+}
+const kpiDefs=[
+  {k:'all',lbl:'Всего компаний',cls:'',v:k=>k.total},
+  {k:'green',lbl:'🟢 в срок',cls:'g',v:k=>k.g},
+  {k:'yellow',lbl:'🟡 ≤3 дней',cls:'y',v:k=>k.y},
+  {k:'orange',lbl:'🟠 4–7 дней',cls:'o',v:k=>k.o},
+  {k:'red',lbl:'🔴 >7 дней / критично',cls:'r',v:k=>k.rd},
+  {k:'debt',lbl:'Дебиторка портфеля',cls:'',v:k=>mln(k.debt)},
+  {k:'riskdebt',lbl:'Долг в зоне риска (🟠+🔴)',cls:'r',v:k=>mln(k.riskDebt)}
+];
+function renderKPI(){$('stats').innerHTML=kpiDefs.map(x=>{const k=kpis(scopedClients());return `<div class="stat ${x.cls} ${filter.kpi===x.k?'active':''}" onclick="setKpi('${x.k}')"><div class="lbl">${x.lbl}</div><strong>${x.v(k)}</strong></div>`;}).join('');}
+function setKpi(k){filter.kpi=k;if(['green','yellow','orange','red'].includes(k)){$('fColor').value=k;}else{$('fColor').value='all';}renderTable();renderKPI();const el=document.getElementById('rows');if(el)el.closest('.panel').scrollIntoView({behavior:'smooth',block:'start'});}
+
+/* ====== TABLE ====== */
+function fillRegions(){const sel=$('fRegion');REGIONS.slice().forEach(rg=>{const o=document.createElement('option');o.value=rg;o.textContent=rg;sel.appendChild(o);});}
+function renderTable(){
+  filter.q=$('q').value.trim().toLowerCase();filter.color=$('fColor').value;filter.region=$('fRegion').value;
+  let list=scopedClients().slice();
+  if(filter.kpi!=='all'&&['green','yellow','orange','red'].includes(filter.kpi)) list=list.filter(c=>colorOf(c)===filter.kpi);
+  if(filter.kpi==='riskdebt') list=list.filter(c=>['orange','red'].includes(colorOf(c)));
+  if(filter.kpi==='debt') list=list.filter(c=>c.debt>0);
+  if(filter.color!=='all') list=list.filter(c=>colorOf(c)===filter.color);
+  if(filter.region!=='all') list=list.filter(c=>c.region===filter.region);
+  if(filter.q) list=list.filter(c=>(c.name+c.bin+c.region+c.user).toLowerCase().includes(filter.q));
+  $('tblCount').textContent=`${list.length} из ${DB.clients.length}`;
+  const shown=list.slice(0,200);
+  $('rows').innerHTML=shown.map(c=>{const col=colorOf(c);const dl=c.dpd>0?c.dpd+' дн':'—';return `<tr class="${current===c.id?'sel':''}" onclick="openCard(${c.id})"><td><span class="dot ${col[0]}"></span>${esc(c.name)}<div style="color:var(--muted);font-size:11px">${c.bin}</div></td><td>${esc(c.region)}</td><td>${money(c.debt)}</td><td>${c.due}</td><td>${dl}</td><td><span class="pill ${col==='green'?'g':col==='yellow'?'y':col==='orange'?'o':'r'}">${COLORLBL[col]}</span></td><td>${esc(c.user)}</td></tr>`;}).join('')+(list.length>200?`<tr><td colspan="7" style="color:var(--muted)">Показаны первые 200 из ${list.length} (уточните фильтр)</td></tr>`:'');
+}
+function openCard(id){current=id;setStage('s1');renderCard();renderTable();}
+function renderCard(){
+  const c=C(current);if(!c)return;$('cardTitle').textContent='Карточка: '+c.name;$('cardSub').textContent='БИН '+c.bin+' · '+c.region+' · '+c.user;
+  const col=colorOf(c);const evs=eventsOf(c.id).slice(0,20);
+  const evh=evs.length?evs.map(e=>`<div style="border-left:3px solid ${col==='green'?'var(--green)':'var(--orange)'};background:#fbfdfe;padding:7px 10px;margin-bottom:6px;border-radius:0 5px 5px 0"><b style="font-size:12.5px">${esc(e.type)}</b><div style="color:var(--muted);font-size:11px">${esc(e.src)} · ${e.date}</div><div style="font-size:11.5px">${esc(e.evi)}</div></div>`).join(''):'<p style="color:var(--muted);font-size:12px">Событий нет.</p>';
+  $('cardBody').innerHTML=`
+   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:12.5px">
+     <div><b>Долг:</b> ${money(c.debt)}<br><b>Срок:</b> ${c.due}<br><b>Просрочка:</b> ${c.dpd>0?c.dpd+' дн':'нет'}<br><b>Цвет:</b> <span class="dot ${col[0]}"></span>${COLORLBL[col]}</div>
+     <div><b>Внешний PD (демо):</b> ${c.spPD.toFixed(1)}%<br><button class="outline" onclick="openRating(${c.id})">Оценить рейтинг →</button></div>
+   </div>
+   <div class="ph" style="margin:12px 0 6px"><h3 class="pt" style="font-size:13px">События (${evs.length})</h3></div>${evh}
+   <div style="margin-top:8px"><button class="primary" onclick="decideClient(${c.id})">Зафиксировать решение</button></div>
+   <div class="ph" style="margin:12px 0 6px"><h3 class="pt" style="font-size:13px">Связаться — агент готовит обращение</h3></div>
+   <div style="font-size:12px;background:#f7fafc;border:1px solid var(--line);border-radius:6px;padding:8px">${esc(draftText(c))}</div>
+   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${contactButtons(c)}<button onclick="logContact(${c.id})">Зафиксировать отправку</button></div>
+   <div class="ph" style="margin:12px 0 6px"><h3 class="pt" style="font-size:13px">Шаблон письма (формирует агент)</h3></div>
+   <textarea id="letterBox" style="width:100%;height:130px;font-size:12px;font-family:Arial">${esc(letterText(c))}</textarea>
+   <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><button onclick="copyText(letterText(C(${c.id})))">Скопировать письмо</button><button onclick="logContact(${c.id})">Зафиксировать отправку письма</button></div>`;
+}
+function decideClient(id){const c=C(id);const reason=prompt('Решение/комментарий (в журнал):','Связаться с клиентом по просрочке');if(reason===null)return;DB.decisions.unshift({c:id,t:nowStr(),by:c.user,act:'Подтверждено',reason:reason});save();renderJournal();alert('Сохранено в журнал.');}
+
+/* ====== ОБРАЩЕНИЯ (агент готовит, человек отправляет) ====== */
+function draftText(c){
+  const col=colorOf(c);
+  const head=`Здравствуйте! ${c.name} (БИН ${c.bin}). `;
+  if(col==='red') return head+`По договору просрочка ${c.dpd||0} дн, долг ${money(c.debt)}. Просим оплатить или согласовать график в ближайшее время.`;
+  if(col==='orange') return head+`Просрочка ${c.dpd||0} дн, долг ${money(c.debt)}. Уточните, пожалуйста, дату оплаты.`;
+  if(col==='yellow') return head+`Просрочка ${c.dpd||0} дн, долг ${money(c.debt)}. Напоминаем об оплате.`;
+  return head+`Напоминаем о плановой оплате до ${c.due}.`;
+}
+function contactButtons(c){
+  const m=MANAGER_CONTACTS[c.user]||{phone:'',tg:''};
+  const txt=encodeURIComponent(draftText(c));
+  return `<a class="pill b" style="text-decoration:none" target="_blank" href="https://wa.me/${m.phone}?text=${txt}">WhatsApp</a>
+    <a class="pill b" style="text-decoration:none" target="_blank" href="https://t.me/${m.tg}">Telegram</a>`;
+}
+function logContact(cid){const c=C(cid);DB.decisions.unshift({c:cid,t:nowStr(),by:'Агент → менеджер',act:'Обращение отправлено',reason:draftText(c)});save();renderJournal();alert('Зафиксировано в журнале: обращение подготовлено агентом и отправлено менеджером.');}
+function letterText(c){
+  const col=colorOf(c);
+  return `Уважаемый(ая) __________________!
+
+По данным мониторинга AgroControl на ${today()}, по компании ${c.name} (БИН ${c.bin}) числится задолженность ${money(c.debt)} ₸ со сроком оплаты ${c.due}${(c.dpd||0)>0?` (просрочка ${c.dpd} дн.)`:''}.
+
+Просим в срок до ______ сообщить дату оплаты либо предоставить график погашения.
+
+${col==='red'?'При отсутствии ответа будем вынуждены приостановить дальнейшие поставки и передать вопрос на юридическую проверку.':'Благодарим за сотрудничество.'}
+
+С уважением,
+${c.user}`;
+}
+function copyText(t){try{navigator.clipboard.writeText(t);alert('Текст скопирован.');}catch(e){alert('Не удалось скопировать.');}}
+
+/* ====== AGENT ====== */
+const AGENT_SOURCES=[
+ {k:'КГД',ok:true},
+ {k:'АИС ОИП',ok:true},
+ {k:'Кредитное бюро',ok:true},
+ {k:'ГБД ЮЛ',ok:true},
+ {k:'Судебные дела',ok:false,note:'нет массового API — точечно, с ЭЦП'}
+];
+/* ====== ПЛАНИРОВЩИК ПРОВЕРОК (график) ====== */
+const CHECK_LIMIT=200;   // запросов к источникам в сутки (ориентир тарифа ADATA PRO)
+const CHECK_COST=250;    // ₸ за один запрос к источнику (допущение)
+const ACTIVE_SOURCES=4;  // КГД, АИС ОИП, бюро, ГБД ЮЛ (суды не подключены)
+function cadence(c){const col=colorOf(c);return col==='red'?1:col==='orange'?3:col==='yellow'?7:30;}
+function addDays(iso,n){const d=new Date(iso+'T00:00:00');d.setDate(d.getDate()+n);return d.toISOString().slice(0,10);}
+function nextCheck(c){return c.lastCheck?addDays(c.lastCheck,cadence(c)):today();}
+function severity(c){const col=colorOf(c);return col==='red'?0:col==='orange'?1:col==='yellow'?2:3;}
+function plan(){
+  const due=DB.clients.filter(c=>nextCheck(c)<=today()).sort((a,b)=>severity(a)-severity(b)||b.debt-a.debt);
+  const selected=[],deferred=[];let checks=0;
+  for(const c of due){ if(checks+1<=CHECK_LIMIT){selected.push(c);checks+=1;} else deferred.push(c); }
+  const byColor={red:0,orange:0,yellow:0,green:0};due.forEach(c=>byColor[colorOf(c)]++);
+  const fullChecks=DB.clients.length;
+  return {due:due.length,selected,deferred,checks,byColor,cost:checks*CHECK_COST,limit:CHECK_LIMIT,fullClients:DB.clients.length,fullChecks,fullCost:fullChecks*CHECK_COST};
+}
+function renderPlan(){
+  const p=plan();
+  const over=p.deferred.length?` <b>Отложено из-за лимита: ${p.deferred.length}</b> (низкий приоритет).`:'';
+  $('planBox').innerHTML=`<b>График:</b> 🔴 ежедневно · 🟠 2×/нед · 🟡 1×/нед · 🟢 1×/мес. `+
+    `Сегодня к проверке: <b>${p.due}</b> компаний (в план вошли <b>${p.selected.length}</b>, запросов ${p.checks}/${p.limit}, стоимость ≈ ${money(p.cost)}).${over}<br>`+
+    `Сравнение: ежедневный скан всех ${p.fullClients} = ${p.fullChecks} запросов/сутки ≈ ${money(p.fullCost)}/сутки — превышает лимит, дорого и не нужно.`;
+}
+
+let agentRunning=false, agentState=null;
+function runAgent(full){
+  if(agentRunning)return;
+  const p=plan();
+  const list = full ? DB.clients.slice() : p.selected.slice();
+  if(!list.length){ alert('На сегодня плановых проверок нет.'); return; }
+  agentRunning=true;$('runBtn').disabled=true;$('runFullBtn').disabled=true;
+  const log=$('agentLog');log.innerHTML='';$('agentBar').style.width='0%';$('agentReport').innerHTML='';
+  agentState={full:0,partial:0,notChecked:[],srcCounts:{},findings:{},checked:0,col:{green:0,yellow:0,orange:0,red:0},size:list.length,mode:full?'полный скан':'по графику'};
+  AGENT_SOURCES.forEach(s=>agentState.srcCounts[s.k]=0);
+  addLogLine('m',(full?'ПОЛНЫЙ СКАН (дорого)':'ПЛАНОВЫЙ ОБХОД по графику')+` · компаний: ${list.length} · базы: `+AGENT_SOURCES.map(s=>s.k+(s.ok?' ✓':' ⚠')).join(' · '));
+  let i=0;
+  const step=()=>{
+    if(i>=list.length){agentRunning=false;$('runBtn').disabled=false;$('runFullBtn').disabled=false;finishAgent();return;}
+    const batch=Math.min(8,list.length-i);
+    for(let k=0;k<batch;k++){processCompany(list[i++]);}
+    $('agentBar').style.width=Math.round(i/list.length*100)+'%';
+    const s=agentState;
+    $('agentKPI').innerHTML=`<span class="dot g"></span>${s.col.green} <span class="dot y"></span>${s.col.yellow} <span class="dot o"></span>${s.col.orange} <span class="dot r"></span>${s.col.red} · проверено ${s.checked}/${s.size} · не проверено ${s.notChecked.length}`;
+    setTimeout(step,35);
+  };
+  setTimeout(step,50);
+}
+function processCompany(c){
+  const col=colorOf(c);
+  const notChk=(c.id*13)%149===0;      // ~0.7% не проверено
+  const partial=(c.id*7)%31===0;       // ~3% частично
+  agentState.checked++;
+  if(notChk) agentState.notChecked.push({name:c.name,reason:'таймаут КГД — источник недоступен'});
+  else if(partial) agentState.partial++; else agentState.full++;
+  AGENT_SOURCES.forEach(s=>{ if(s.ok && !notChk && !(partial&&s.k==='Кредитное бюро')) agentState.srcCounts[s.k]++; });
+  const found=eventsOf(c.id);
+  found.forEach(e=>{agentState.findings[e.type]=(agentState.findings[e.type]||0)+1;});
+  agentState.col[col]++;
+  c.lastCheck=today();
+  addLogLine(col[0], `#${String(c.id).padStart(3,'0')} ${c.name} | КГД:${notChk?'✗':'OK'} АИС:${notChk?'—':'OK'} БЮРО:${(partial||notChk)?'—':'OK'} ГБД:${notChk?'—':'OK'} | DPD ${c.dpd||0}д`+(found.length?` | найдено: ${found.map(e=>e.type).join(', ')}`:'')+` → ${COLORLBL[col].toUpperCase()}`);
+}
+function addLogLine(cls,text){const log=$('agentLog');const d=document.createElement('div');d.className=cls;d.textContent=text;log.appendChild(d);while(log.childElementCount>250)log.removeChild(log.firstChild);log.scrollTop=log.scrollHeight;}
+function finishAgent(){
+  const s=agentState,k=kpis();
+  const srcRows=AGENT_SOURCES.map(x=>{const cnt=s.srcCounts[x.k]||0;const st=x.ok?(cnt>=DB.clients.length?'полное покрытие':cnt>0?'частично':'нет'):'не подключено';const cl=x.ok?(cnt>=DB.clients.length?'g':cnt>0?'y':'r'):'r';return `<tr><td>${esc(x.k)}</td><td>${x.ok?cnt+' / '+DB.clients.length:'—'}</td><td><span class="pill ${cl}">${st}</span></td><td>${esc(x.note||'')}</td></tr>`;}).join('');
+  const findRows=Object.entries(s.findings).sort((a,b)=>b[1]-a[1]).map(([t,n])=>`<tr><td>${esc(t)}</td><td style="text-align:center">${n}</td></tr>`).join('')||'<tr><td colspan="2" style="color:var(--muted)">Событий не найдено</td></tr>';
+  const notChkList=s.notChecked.length?s.notChecked.slice(0,10).map(x=>`<li>${esc(x.name)} — ${esc(x.reason)}</li>`).join(''):'<li>Все компании проверены полностью.</li>';
+  const recs=DB.clients.filter(c=>['red','orange'].includes(colorOf(c))).sort((a,b)=>severity(a)-severity(b)||b.debt-a.debt).slice(0,5).map(c=>{const m=MANAGER_CONTACTS[c.user]||{};return `<li>${esc(c.name)} — ${ACTION[colorOf(c)]} · ${esc(c.user)} <a href="https://wa.me/${m.phone||''}" target="_blank" style="color:var(--teal)">WhatsApp</a> · <a href="javascript:openCard(${c.id})" style="color:var(--teal)">карточка</a></li>`;}).join('');
+  const docs=['Выписка из ГБД ЮЛ (учредители, руководитель)','Справка КГД о налоговой задолженности','Бухотчётность: Баланс, ОДДС, ОПиУ (для оценки компании)','Отчёт кредитного бюро (с согласия клиента)'];
+  $('agentReport').innerHTML=`
+   <div class="ph" style="margin-top:6px"><h3 class="pt" style="font-size:13px">Отчёт агента (${s.mode})</h3><span class="s">Обработано проверок: ${s.size} ≈ ${money(s.size*CHECK_COST)} · внутри проверки — несколько источников</span></div>
+   <div class="two" style="gap:14px">
+     <div>
+       <div style="font-weight:700;font-size:12px;margin-bottom:6px">1. Базы данных, к которым зашёл агент</div>
+       <div class="tbl-wrap" style="max-height:none"><table class="risk"><thead><tr><th>База</th><th>Проверено</th><th>Статус</th><th>Примечание</th></tr></thead><tbody>${srcRows}</tbody></table></div>
+       <div style="font-weight:700;font-size:12px;margin:12px 0 6px">2. Покрытие проверки</div>
+       <div style="font-size:12.5px">Полностью: <b>${s.full}</b> · частично: <b>${s.partial}</b> · <b>не проверено: ${s.notChecked.length}</b></div>
+       <div style="font-weight:700;font-size:12px;margin:10px 0 4px">Кого не проверил</div>
+       <ul style="font-size:12px;margin:0;padding-left:18px">${notChkList}</ul>
+       <div style="font-weight:700;font-size:12px;margin:12px 0 4px">3. Документы, которые запрашивает агент</div>
+       <ul style="font-size:12px;margin:0;padding-left:18px">${docs.map(d=>`<li>${esc(d)}</li>`).join('')}</ul>
+       <div style="font-weight:700;font-size:12px;margin:12px 0 4px">4. Кому позвонить / написать (приоритет)</div>
+       <ul style="font-size:12px;margin:0;padding-left:18px">${recs||'<li>Критичных нет.</li>'}</ul>
+     </div>
+     <div>
+       <div style="font-weight:700;font-size:12px;margin-bottom:6px">5. Что выявлено</div>
+       <div class="tbl-wrap" style="max-height:none"><table class="risk"><thead><tr><th>Тип события</th><th style="text-align:center">Найдено</th></tr></thead><tbody>${findRows}</tbody></table></div>
+       <div style="font-weight:700;font-size:12px;margin:12px 0 6px">6. Итог по цветам</div>
+       <div style="font-size:12.5px"><span class="dot g"></span>${s.col.green} в срок · <span class="dot y"></span>${s.col.yellow} ≤3 дн · <span class="dot o"></span>${s.col.orange} 4–7 дн · <span class="dot r"></span>${s.col.red} критично</div>
+       <div style="font-size:12.5px;margin-top:6px">Долг в зоне риска (🟠+🔴): <b>${mln(k.riskDebt)}</b></div>
+       <div class="note" style="margin-top:8px">Судебные дела массово не покрыты (нужна точечная проверка с ЭЦП). Отсутствие записи ≠ отсутствие риска.</div>
+     </div>
+   </div>`;
+  DB.decisions.unshift({c:DB.clients[0].id,t:nowStr(),by:'Агент',act:'Проход завершён',reason:`Проверено ${s.checked}, не проверено ${s.notChecked.length}, критично ${s.col.red}`});
+  save();renderJournal();renderEventsTop();renderPlan();
+}
+function renderEventsTop(){
+  const top=DB.events.filter(e=>/Банкротство|>90|Исполнительное|Налоговая/.test(e.type)).slice(0,25);
+  $('eventsTop').innerHTML=top.length?top.map(e=>{const c=C(e.c);return `<li><b>${esc(c.name)}</b> — ${esc(e.type)}<div class="tm">${esc(e.src)} · ${e.date} · DPD ${c.dpd||0} дн</div></li>`;}).join(''):'<li style="color:var(--muted)">Запустите агента — здесь появятся находки.</li>';
+}
+
+/* ====== JOURNAL ====== */
+function renderJournal(){$('journal').innerHTML=DB.decisions.length?DB.decisions.slice(0,50).map(d=>{const c=C(d.c);return `<li><b>${esc(c?c.name:'—')}</b> — ${esc(d.act)}<div class="tm">${d.t} · ${esc(d.by)}</div>${esc(d.reason)}</li>`;}).join(''):'<li style="color:var(--muted)">Решений нет.</li>';}
+
+/* ====== RISKS / SOURCES / TASKS ====== */
+function renderRisks(){$('riskRows').innerHTML=DB.risks.slice().sort((a,b)=>b.p*b.i-a.p*a.i).map(r=>{const s=r.p*r.i;const k=s>=15?'r-crit':s>=9?'r-hi':s>=5?'r-mid':'r-lo';return `<tr><td>${esc(r.title)}</td><td style="text-align:center">${r.p}</td><td style="text-align:center">${r.i}</td><td style="text-align:center"><span class="rscore ${k}">${s}</span></td><td>${esc(r.owner)}</td></tr>`;}).join('');}
+function renderSources(){$('srcRows').innerHTML=DB.sources.map(s=>{const b=s.status==='подтверждено'?'g':s.status==='частично'?'y':'r';return `<tr><td>${esc(s.name)}<div style="color:var(--muted);font-size:11px">${esc(s.url)}</div></td><td>${esc(s.what)}</td><td><span class="pill ${b}">${esc(s.status)}</span></td></tr>`;}).join('');}
+function renderTasks(){$('taskBody').innerHTML=DB.tasks.map(x=>{const c=C(x.c);return `<div style="font-size:12px;padding:6px 0;border-bottom:1px solid #eef1f4"><input type="checkbox" ${x.done?'checked':''} onchange="toggleTask('${esc(x.title)}',${x.c})"> ${esc(x.title)}<div style="color:var(--muted);font-size:11px">${esc(c?c.name:'—')} · ${esc(x.owner)} · до ${x.due}</div></div>`;}).join('');}
+function toggleTask(t,cid){const x=DB.tasks.find(z=>z.title===t&&z.c===cid);if(x){x.done=!x.done;save();renderTasks();}}
+
+/* ====== STAGE 2: ОЦЕНКА КОМПАНИИ ====== */
+const CLASSES=[{c:'AC-A',s:85,color:'#2E7D32'},{c:'AC-B',s:70,color:'#4C9A2A'},{c:'AC-C',s:55,color:'#B7791F'},{c:'AC-D',s:40,color:'#D97706'},{c:'AC-E',s:25,color:'#D4593A'},{c:'AC-F',s:10,color:'#C0392B'},{c:'AC-G',s:0,color:'#7B241C'}];
+function classByScore(s){return CLASSES.find(k=>s>=k.s)||CLASSES[CLASSES.length-1];}
+const FIN={};
+function ensureFin(c){
+  if(FIN[c.id])return FIN[c.id];
+  const seedv=((c.id*2654435761)%1000)/1000;
+  const rev=Math.round(c.debt*(3+seedv*4)/1e6)*1e6;
+  const ocf=Math.round(rev*(0.06+seedv*0.14)/1e6)*1e6;
+  const assets=Math.round(rev*(1.1+seedv*1.2)/1e6)*1e6;
+  const equity=Math.round(assets*(0.25+seedv*0.35)/1e6)*1e6;
+  const debt=Math.round(c.debt*(0.6+seedv)/1e6)*1e6;
+  const ca=Math.round(assets*(0.35+seedv*0.3)/1e6)*1e6;
+  const cl=Math.round(ca/(0.9+seedv*1.1)/1e6)*1e6;
+  const np=Math.round(rev*(0.02+seedv*0.08)/1e6)*1e6;
+  FIN[c.id]={rev,ca,cl,assets,equity,debt,ocf,np,q:{term:70,rep:70,season:70,capdyn:70,colltype:70,collcov:70,crop:70,wx:70},loaded:false};
+  return FIN[c.id];
+}
+function sHi(v,b){return v>=b[0]?100:v>=b[1]?75:v>=b[2]?50:v>=b[3]?25:0;}
+function sLo(v,b){return v<=b[0]?100:v<=b[1]?75:v<=b[2]?50:v<=b[3]?25:0;}
+const LIMITPCT={'AC-A':1,'AC-B':0.9,'AC-C':0.7,'AC-D':0.5,'AC-E':0.3,'AC-F':0.1,'AC-G':0};
+/* веса 5 C's под тонкий файл и слабую отчётность (KZ, агро): поведение, обеспечение, условия важнее капитала */
+/* Стандарты методики (пресеты весов 5 C's). Всегда доступен выбор стандарта. */
+const PRESETS={
+ "5 C's — агро/тонкий файл":{C1:25,C2:25,C3:10,C4:20,C5:20},
+ "Равные веса (baseline)":{C1:20,C2:20,C3:20,C4:20,C5:20},
+ "Осторожный (упор на поведение)":{C1:35,C2:25,C3:5,C4:20,C5:15},
+ "Обеспечение-ориентированный":{C1:15,C2:20,C3:15,C4:35,C5:15}
+};
+let SETTINGS=(function(){try{const r=localStorage.getItem('agrocontrol-settings');if(r)return JSON.parse(r);}catch(e){} return {preset:"5 C's — агро/тонкий файл",w:{...PRESETS["5 C's — агро/тонкий файл"]}};})();
+function saveSettings(){try{localStorage.setItem('agrocontrol-settings',JSON.stringify(SETTINGS));}catch(e){}}
+function onPreset(v){if(v!=='Свой'){SETTINGS.preset=v;SETTINGS.w={...PRESETS[v]};}else{SETTINGS.preset='Свой';}saveSettings();renderEval();}
+function onWeight(k,v){SETTINGS.w[k]=+v||0;SETTINGS.preset='Свой';saveSettings();renderEval();}
+function renderSettings(){const el=$('cabSettings');if(!el)return;const w=SETTINGS.w;const sum=w.C1+w.C2+w.C3+w.C4+w.C5;
+  const names={C1:'Character',C2:'Capacity',C3:'Capital',C4:'Collateral',C5:'Conditions'};
+  const opts=Object.keys(PRESETS).concat(['Свой']);
+  el.innerHTML=`<div class="toolbar"><label style="font-size:12px;color:var(--muted)">Стандарт:</label>
+    <select onchange="onPreset(this.value)">${opts.map(o=>`<option ${SETTINGS.preset===o?'selected':''}>${o}</option>`).join('')}</select>
+    <span class="pill ${sum===100?'g':'y'}">сумма весов: ${sum}%</span></div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">${['C1','C2','C3','C4','C5'].map(k=>`<div><div style="font-size:11px;color:var(--muted)">${names[k]}</div><input type="number" value="${w[k]}" onchange="onWeight('${k}',this.value)" style="width:100%"></div>`).join('')}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:6px">Веса нормируются автоматически. Стандарт по умолчанию — 5 C's под тонкий файл/слабую отчётность.</div>`;
+}
+
+const REGION_RISK={'Акмолинская':85,'Костанайская':85,'Северо-Казахстанская':90,'Карагандинская':65,'Восточно-Казахстанская':65,'Алматинская':70,'Жамбылская':60,'Туркестанская':55,'Актюбинская':55,'Западно-Казахстанская':60,'Павлодарская':70,'Кызылординская':50};
+const COLL=[4,12,20];
+function q5c(c,f){
+  const liq=f.cl?f.ca/f.cl:0, aut=f.assets?f.equity/f.assets:0, da=f.assets?f.debt/f.assets:1, cov=f.debt?f.ocf/f.debt:0, ros=f.rev?f.np/f.rev:0;
+  const q=f.q||{};
+  const bureau=/негатив|ликвидац/i.test(c.bureau||'')?30:70;
+  const C1=Math.round((cmapv(c)+bureau+(q.term||70))/3);
+  const C2=Math.round((sHi(cov,[0.5,0.3,0.15,0.05])+sHi(ros,[0.1,0.06,0.03,0.01])+(q.season||70))/3);
+  const C3=Math.round((sHi(aut,[0.5,0.35,0.25,0.15])+sLo(da,[0.3,0.5,0.65,0.8])+(q.capdyn||70))/3);
+  const C4=Math.round(((q.colltype||70)+(q.collcov||70))/2);
+  const regionS=(REGION_RISK[c.region]||65);
+  const C5=Math.round((regionS+(q.crop||70)+(q.wx||70))/3);
+  const W=SETTINGS.w, sw=(W.C1+W.C2+W.C3+W.C4+W.C5)||100;
+  const total=Math.round((C1*W.C1+C2*W.C2+C3*W.C3+C4*W.C4+C5*W.C5)/sw);
+  return {total,cls:classByScore(total),cs:{C1,C2,C3,C4,C5}};
+}
+function statusOf(c){const f=ensureFin(c);if(!f.loaded)return 'new';return colorOf(c)==='red'?'watch':'review';}
+function statusLbl(s){return s==='new'?'Онбординг':s==='watch'?'Наблюдение':'Пересмотр';}
+function fillEvalSel(){const sel=$('evalSel');if(!sel)return;sel.innerHTML=DB.clients.slice(0,60).map(c=>`<option value="${c.id}">${esc(c.name)} — ${mln(c.debt)}</option>`).join('');}
+function fakeUpload(){const c=C(+$('evalSel').value)||DB.clients[0];const f=ensureFin(c);const s=(c.id*9301)%7;['rev','ocf','assets','equity','debt','ca','cl','np'].forEach(k=>{f[k]=Math.round(f[k]*(1+((s-3)/50))/1e6)*1e6;});f.loaded=true;renderEval();alert('Отчётность загружена (демо): Баланс, ОДДС, ОПиУ, Активы.');}
+function onFin(id,k,v){const f=ensureFin(C(id));f[k]=+v||0;f.loaded=true;renderEval();}
+function onQ(id,k,v){const f=ensureFin(C(id));f.q[k]=+v;f.loaded=true;renderEval();}
+function cmapv(c){const m={green:90,yellow:65,orange:40,red:15};return m[colorOf(c)]||40;}
+function renderEval(){
+  renderSettings();
+  const sel=$('evalSel');if(!sel)return;const id=+sel.value||DB.clients[0].id;const c=C(id);const f=ensureFin(c);const q=f.q;const r=q5c(c,f);
+  const liq=f.cl?f.ca/f.cl:0,aut=f.assets?f.equity/f.assets:0,da=f.assets?f.debt/f.assets:1,cov=f.debt?f.ocf/f.debt:0,ros=f.rev?f.np/f.rev:0;
+  const A=(l,v)=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px dashed #eef1f4"><span>${l} <span style="color:var(--muted);font-size:10px">авто</span></span><b>${v}/100</b></div>`;
+  const S=(k,l,opts)=>`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:12px;padding:3px 0;border-bottom:1px dashed #eef1f4"><span>${l}</span><select onchange="onQ(${id},'${k}',this.value)">${opts.map(o=>`<option value="${o[0]}" ${q[k]==o[0]?'selected':''}>${o[1]}</option>`).join('')}</select></div>`;
+  const card=(n,title,w,sub,body,score)=>`<div class="card" style="margin:0"><div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-size:13px">${n}. ${title}</b><span class="pill">${score}/100 · вес ${w}%</span></div><div style="color:var(--muted);font-size:11px;margin:4px 0 6px">${sub}</div>${body}</div>`;
+  const oTerm=[[40,'<1 года'],[70,'1–3 года'],[100,'>3 лет']],oSeason=[[40,'Высокая'],[70,'Умеренная'],[100,'Низкая']],oDyn=[[40,'Снижается'],[70,'Стабилен'],[100,'Растёт']],oCT=[[30,'Нет'],[70,'Земля/техника'],[100,'Залог+гарантия']],oCC=[[30,'<50%'],[70,'50–100%'],[100,'>100%']],oCrop=[[40,'Монокультура'],[70,'2–3 культуры'],[100,'Диверсификация']],oWx=[[40,'Высокий'],[70,'Средний'],[100,'Низкий/страховка']];
+  $('cabSub').textContent=statusLbl(statusOf(c))+' · '+c.name+' · БИН '+c.bin+(f.loaded?'':' · тонкий файл (без отчётности)');
+  $('cabForm').innerHTML=
+    card(1,'Character',SETTINGS.w.C1,'Платёжная дисциплина', S('term','Срок сотрудничества',oTerm), r.cs.C1)
+    +card(2,'Capacity',SETTINGS.w.C2,'Способность платить', A('Покрытие долга ОДДС',sHi(cov,[0.5,0.3,0.15,0.05]))+A('Рентабельность (ЧП/выручка)',sHi(ros,[0.1,0.06,0.03,0.01]))+S('season','Сезонность',oSeason), r.cs.C2)
+    +card(3,'Capital',SETTINGS.w.C3,'Капитал (данные часто неполные)', A('Автономия (капитал/активы)',sHi(aut,[0.5,0.35,0.25,0.15]))+A('Долг/активы',sLo(da,[0.3,0.5,0.65,0.8]))+S('capdyn','Динамика капитала',oDyn), r.cs.C3)
+    +card(4,'Collateral',SETTINGS.w.C4,'Обеспечение', S('colltype','Тип обеспечения',oCT)+S('collcov','Покрытие долга обеспечением',oCC), r.cs.C4)
+    +card(5,'Conditions',SETTINGS.w.C5,'Условия (регион, культура, погода)', S('crop','Культуры',oCrop)+S('wx','Погодный/ценовой риск',oWx), r.cs.C5);
+  const used=['term','season','capdyn','colltype','collcov','crop','wx'];let fld=0;used.forEach(k=>{if(q[k]!=null)fld++;});const pct=Math.round(fld/used.length*100);
+  $('cabProgress').style.width=pct+'%';$('cabProgressTxt').textContent=pct+'%';
+  const col=v=>v>=80?'var(--green)':v>=60?'var(--yellow)':v>=40?'var(--orange)':'var(--red)';
+  const bar=(l,w,v)=>`<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:12px"><span>${l} <span style="color:var(--muted)">вес ${w}%</span></span><b style="color:${col(v)}">${v}/100</b></div><div class="bar"><i style="width:${v}%;background:${col(v)}"></i></div></div>`;
+  const lim=Math.round(c.debt*(LIMITPCT[r.cls.c]||0));
+  $('cabResult').innerHTML=`<div style="text-align:center;margin-bottom:12px"><span class="pill" style="background:${r.cls.color};color:#fff;font-size:20px;padding:8px 20px">${r.cls.c}</span><div style="font-size:12px;color:var(--muted);margin-top:6px">Итог ${r.total}/100 · 5 C's of Credit (взвешенно)</div></div>`
+    +bar('Character',SETTINGS.w.C1,r.cs.C1)+bar('Capacity',SETTINGS.w.C2,r.cs.C2)+bar('Capital',SETTINGS.w.C3,r.cs.C3)+bar('Collateral',SETTINGS.w.C4,r.cs.C4)+bar('Conditions',SETTINGS.w.C5,r.cs.C5)
+    +`<div class="note">Рекомендуемый лимит отсрочки: <b>${mln(lim)}</b> (${Math.round((LIMITPCT[r.cls.c]||0)*100)}% от долга ${mln(c.debt)}). Веса: стандарт «${SETTINGS.preset}» (Character ${SETTINGS.w.C1} · Capacity ${SETTINGS.w.C2} · Capital ${SETTINGS.w.C3} · Collateral ${SETTINGS.w.C4} · Conditions ${SETTINGS.w.C5}). Источники: 5 C's of Credit; World Bank «Agricultural Sector Risk Assessment»; CGAP/RFILC smallholder scoring.</div>`;
+}
+function fakeUpload(){const c=C(+$('evalSel').value)||DB.clients[0];const f=ensureFin(c);const s=(c.id*9301)%7;['rev','ocf','assets','equity','debt','ca','cl','np'].forEach(k=>{f[k]=Math.round(f[k]*(1+((s-3)/50))/1e6)*1e6;});f.loaded=true;renderEval();alert('Отчётность загружена (демо): Баланс, ОДДС, ОПиУ.');}
+function cabMemoFill(){const id=+$('evalSel').value;const c=C(id);const f=ensureFin(c);const r=q5c(c,f);const lim=Math.round(c.debt*(LIMITPCT[r.cls.c]||0));const weak=[['Character',r.cs.C1],['Capacity',r.cs.C2],['Capital',r.cs.C3],['Collateral',r.cs.C4],['Conditions',r.cs.C5]].filter(x=>x[1]<60).map(x=>x[0]).join(', ')||'нет';$('cabMemo').value=`Оценка AgroControl от ${today()} по методике 5 C's of Credit (взвешенно).\nИтог: ${r.total}/100, класс ${r.cls.c}.\nСлабые факторы: ${weak}.\nРекомендуемый лимит отсрочки: ${mln(lim)}.\nУсловия: контроль DPD, пересмотр по событию.`;}
+function renderRiskList(){if(!$('riskList'))return;
+  const q=(($('rq')||{}).value||'').toLowerCase();const fl=($('rf')||{}).value||'all';
+  let list=DB.clients.slice(0,60).filter(c=>(c.name+c.bin).toLowerCase().includes(q));
+  if(fl!=='all') list=list.filter(c=>statusOf(c)===fl);
+  $('riskList').innerHTML=list.map(c=>{const f=ensureFin(c);const r=q5c(c,f);const st=statusOf(c);return `<tr onclick="openRating(${c.id})"><td>${esc(c.name)}<div style="color:var(--muted);font-size:11px">${c.bin}</div></td><td><span class="pill ${st==='watch'?'r':st==='review'?'b':'y'}">${statusLbl(st)}</span></td><td><span class="pill" style="background:${r.cls.color};color:#fff">${r.cls.c}</span></td><td>${mln(Math.round(c.debt*(LIMITPCT[r.cls.c]||0)))}</td></tr>`;}).join('')||'<tr><td colspan="4" style="color:var(--muted)">Нет записей.</td></tr>';
+}
+function riskDecide(act){const id=+$('evalSel').value;const c=C(id);const r=q5c(c,ensureFin(c));const lim=Math.round(c.debt*(LIMITPCT[r.cls.c]||0));const memo=($('cabMemo')||{}).value||'';DB.decisions.unshift({c:id,t:nowStr(),by:'Риск-менеджер',act:'Оценка: '+act,reason:`Класс ${r.cls.c} (${r.total}/100), лимит ${mln(lim)}. ${memo}`.trim()});save();renderJournal();alert('Решение рисковика записано в журнал.');}
+function renderRating(){}
+function openRating(id){setStage('s2');const s=$('evalSel');if(s)s.value=String(id);renderEval();}
+function renderRatingCard(){}
+
+/* ====== BRIEF / EXPORT ====== */
+function toggleBrief(){const b=$('briefBox');if(b.style.display==='block'){b.style.display='none';return;}b.textContent=briefText();b.style.display='block';}
+function briefText(){const k=kpis();return ['СПРАВКА — AgroControl (демо, синтетика)','Дата: '+today(),'',
+ 'Портфель: '+k.total+' компаний. Дебиторка '+mln(k.debt)+'.','🟢 '+k.g+' · 🟡 '+k.y+' · 🟠 '+k.o+' · 🔴 '+k.rd,
+ 'Долг в зоне риска (🟠+🔴): '+mln(k.riskDebt),'Критичных событий: '+k.critEvents,'',
+ 'Допущения: средняя дебиторка на клиента '+mln(SEASON_PER_CLIENT)+'; портфель '+mln(k.portfolio),'Пороги DPD: ≤3 жёлтый, 4–7 оранжевый, >7 красный.','',
+ 'Оговорка: данные синтетические; интеграций нет; рейтинг — условный второй этап.'].join('\n');}
+function exportJSON(){const blob=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='agrocontrol-500-demo.json';a.click();}
+
+/* ====== РОЛИ ====== */
+function scopedClients(){ if(role==='manager'&&manager) return DB.clients.filter(c=>c.user===manager); return DB.clients; }
+function fillManagers(){ const sel=$('manager'); const ms=[...new Set(DB.clients.map(c=>c.user))]; sel.innerHTML=ms.map(m=>`<option>${esc(m)}</option>`).join(''); manager=ms[0]; }
+function onRole(){ role=$('role').value; $('manager').style.display=role==='manager'?'inline-block':'none'; $('queuePanel').style.display=role==='investor'?'none':'block'; const t2=$('tab-s2'); if(t2) t2.style.display=(role==='risk')?'inline-block':'none'; if(role!=='risk'&&stage==='s2'){stage='s1';} renderAll(); setStage(stage); }
+function onManager(){ manager=$('manager').value; renderAll(); }
+
+/* ====== AGING ====== */
+function agingRows(list){
+  const B=[{k:'В срок',lo:-1e9,hi:0,color:'var(--green)'},{k:'1–30',lo:1,hi:30,color:'var(--yellow)'},{k:'31–60',lo:31,hi:60,color:'var(--orange)'},{k:'61–90',lo:61,hi:90,color:'var(--red)'},{k:'90+',lo:91,hi:1e9,color:'#7B241C'}];
+  return B.map(b=>{const cs=list.filter(c=>{const d=c.dpd||0;return d>=b.lo&&d<=b.hi;});return {k:b.k,color:b.color,count:cs.length,sum:cs.reduce((s,c)=>s+c.debt,0)};});
+}
+function renderAging(){ const list=scopedClients(); const total=list.reduce((s,c)=>s+c.debt,0)||1; $('agingBody').innerHTML=agingRows(list).map(r=>{const p=Math.round(r.sum/total*100);return `<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:12px"><span>${r.k} · ${r.count} клиентов</span><b>${mln(r.sum)} · ${p}%</b></div><div class="bar"><i style="width:${p}%;background:${r.color}"></i></div></div>`;}).join(''); }
+
+/* ====== CONCENTRATION ====== */
+function renderConc(){ const all=scopedClients(); const total=all.reduce((s,c)=>s+c.debt,0)||1; const list=all.slice().sort((a,b)=>b.debt-a.debt).slice(0,10); $('concSub').textContent='Доля топ-10: '+Math.round(list.reduce((s,c)=>s+c.debt,0)/total*100)+'%'; $('concBody').innerHTML=list.map((c,i)=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid #eef1f4"><span>${i+1}. ${esc(c.name)}<span style="color:var(--muted)"> · ${esc(c.region)}</span></span><b>${mln(c.debt)} · ${(c.debt/total*100).toFixed(1)}%</b></div>`).join(''); }
+
+/* ====== WORK QUEUE ====== */
+const ACTION={red:'Позвонить + юридическая проверка',orange:'Напомнить об оплате, уточнить график',yellow:'Напомнить об оплате'};
+function renderQueue(){ const list=scopedClients().filter(c=>['red','orange','yellow'].includes(colorOf(c))).sort((a,b)=>severity(a)-severity(b)||b.debt-a.debt); $('queueSub').textContent=`${list.length} компаний требуют действия`+(role==='manager'&&manager?` · ${esc(manager)}`:''); const show=list.slice(0,25); $('queueBody').innerHTML=show.map(c=>{const col=colorOf(c);return `<div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;padding:7px 0;border-bottom:1px solid #eef1f4"><div><span class="dot ${col[0]}"></span><b style="font-size:12.5px">${esc(c.name)}</b><div style="color:var(--muted);font-size:11px">${esc(c.region)} · ${esc(c.user)} · DPD ${c.dpd||0} дн · долг ${mln(c.debt)}</div><div style="font-size:11.5px;margin-top:2px">${ACTION[col]}</div></div><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${contactButtons(c)}<button class="primary" onclick="decideClient(${c.id})" style="white-space:nowrap">В работу</button></div></div>`;}).join('')+(list.length>25?`<div style="color:var(--muted);font-size:11.5px;padding-top:6px">Показаны первые 25 из ${list.length}</div>`:''); }
+
+/* ====== NAV ====== */
+function setStage(s){if(s==='s2'&&role!=='risk')s='s1';stage=s;$('tab-s1').classList.toggle('active',s==='s1');$('tab-s2').classList.toggle('active',s==='s2');$('stage1').style.display=s==='s1'?'block':'none';$('stage2').style.display=s==='s2'?'block':'none';['monExtra1','monExtra2'].forEach(id=>{const el=$(id);if(el)el.style.display=(s==='s1')?'':'none';});}
+function renderAll(){renderKPI();renderTable();renderCard();renderJournal();renderRisks();renderSources();renderTasks();renderRating();renderEval();renderEventsTop();renderPlan();renderQueue();renderAging();renderConc();}
+
+/* ====== INIT ====== */
+fillRegions();fillManagers();fillEvalSel();renderAll();setStage('s1');
+</script>
+</body>
+</html>
