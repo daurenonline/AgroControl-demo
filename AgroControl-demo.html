@@ -200,7 +200,7 @@
 
 <script>
 'use strict';
-const LSKEY='agrocontrol-demo-v6';
+const LSKEY='agrocontrol-demo-v7';
 const $=id=>document.getElementById(id);
 const money=n=>n.toLocaleString('ru-RU')+' ₸';
 const mln=n=>(n/1e6).toLocaleString('ru-RU',{maximumFractionDigits:1})+' млн ₸';
@@ -218,8 +218,10 @@ const THRESH={y:3,o:7};             // DPD: <=3 жёлтый, 4–7 оранже
 
 /* ====== Псевдослучайный генератор (стабильные данные) ====== */
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
-const ROOTS=['АгроСнаб','Поле','Жасыл','Дала','АгроТрейд','Хим-Агро','Ертіс','Сарыарқа','Тұран','Асыл','Береке','Нұр','Байқоңыр','Қостанай','Ақтөбе','Оңтүстік','Шығыс','Батыс','Көктем','Күз'];
-const SUF=['Север','Юг','KZ','Агро','Химия','Ресурс','Сервис','Трейд','Плюс','Групп'];
+const TYPES=['ТОО','КХ','ФХ','АО','ИП'];
+const FARMS=['Астық','Бидай','Дала','Егін','Есіл','Тобыл','Сарыарқа','Тұран','Арай','Нұр','Ақжол','Береке','Көктем','Жетісу','Сырдария','Алтын','Мадина','Кенже','Ертіс','Шанырақ'];
+const FARMSUF=['Агро','Агрофирма','Егін','Дала','Астық'];
+const SURNAMES=['Мухамедов','Ермеков','Смагулов','Кабылов','Нурланов','Оспанов','Ахметов','Ибраев','Жумабаев','Сеитов','Тлеубаев','Абдрахманов'];
 const REGIONS=['Акмолинская','Костанайская','Северо-Казахстанская','Карагандинская','Восточно-Казахстанская','Алматинская','Жамбылская','Туркестанская','Актюбинская','Западно-Казахстанская','Павлодарская','Кызылординская'];
 const USERS=['Менеджер А. Ермеков (Акмолинская)','Менеджер Д. Смагулов (Костанай)','Менеджер Ж. Кабылов (СКО)','Менеджер Е. Мукашев (Караганда)'];
 /* Контакты менеджеров (синтетика). В пилоте — из CRM. */
@@ -235,9 +237,11 @@ const EVT=['Налоговая задолженность','Исполнител
 function generate(){
   const r=mulberry32(20261013); const clients=[],events=[]; let eid=1;
   for(let i=1;i<=500;i++){
-    const root=ROOTS[Math.floor(r()*ROOTS.length)], suf=SUF[Math.floor(r()*SUF.length)];
-    const isIP=r()<0.18;
-    const name=(isIP?'ИП «':'ТОО «')+root+(isIP?'»':'-'+suf+'»');
+    const t=TYPES[Math.floor(r()*TYPES.length)];
+    const isIP=(t==='ИП') || r()<0.12;
+    let name;
+    if(isIP){ const s=SURNAMES[Math.floor(r()*SURNAMES.length)]; name=`ИП «${s}» (КХ)`; }
+    else { const a=FARMS[Math.floor(r()*FARMS.length)]; const b=r()<0.55?FARMSUF[Math.floor(r()*FARMSUF.length)]:''; name=`${t} «${b? a+'-'+b : a}»`; }
     const bin=String(Math.floor(r()*9e11)+1e11).slice(0,12);
     const region=REGIONS[Math.floor(r()*REGIONS.length)];
     const user=USERS[Math.floor(r()*USERS.length)];
