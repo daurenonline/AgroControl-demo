@@ -629,8 +629,7 @@ function renderEval(){
     +card(2,'Capacity',SETTINGS.w.C2,'Способность платить', A('Покрытие долга ОДДС',sHi(cov,[0.5,0.3,0.15,0.05]))+A('Рентабельность (ЧП/выручка)',sHi(ros,[0.1,0.06,0.03,0.01]))+S('season','Сезонность',oSeason), r.cs.C2)
     +card(3,'Capital',SETTINGS.w.C3,'Капитал (данные часто неполные)', A('Автономия (капитал/активы)',sHi(aut,[0.5,0.35,0.25,0.15]))+A('Долг/активы',sLo(da,[0.3,0.5,0.65,0.8]))+S('capdyn','Динамика капитала',oDyn), r.cs.C3)
     +card(4,'Collateral',SETTINGS.w.C4,'Обеспечение', S('colltype','Тип обеспечения',oCT)+S('collcov','Покрытие долга обеспечением',oCC), r.cs.C4)
-    +card(5,'Conditions',SETTINGS.w.C5,'Условия (регион, культура, погода)', S('crop','Культуры',oCrop)+S('wx','Погодный/ценовой риск',oWx), r.cs.C5)
-    +`<div style="grid-column:1 / -1;font-size:11px;color:var(--muted)">Показатели мониторинга (DPD, кредитное бюро, регион) подтягиваются автоматически и здесь не дублируются.</div>`;
+    +card(5,'Conditions',SETTINGS.w.C5,'Условия (регион, культура, погода)', S('crop','Культуры',oCrop)+S('wx','Погодный/ценовой риск',oWx), r.cs.C5);
   const used=['term','season','capdyn','colltype','collcov','crop','wx'];let fld=0;used.forEach(k=>{if(q[k]!=null)fld++;});const pct=Math.round(fld/used.length*100);
   $('cabProgress').style.width=pct+'%';$('cabProgressTxt').textContent=pct+'%';
   const col=v=>v>=80?'var(--green)':v>=60?'var(--yellow)':v>=40?'var(--orange)':'var(--red)';
