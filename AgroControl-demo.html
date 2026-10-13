@@ -367,6 +367,7 @@ function renderPlan(){
     `Сравнение: ежедневный скан всех ${p.fullClients} = ${p.fullChecks} запросов/сутки ≈ ${money(p.fullCost)}/сутки — превышает лимит, дорого и не нужно.`;
 }
 
+let agentRunning=false, agentState=null;
 function runAgent(full){
   if(agentRunning)return;
   const p=plan();
