@@ -172,27 +172,19 @@
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div class="bar" style="flex:1"><i id="cabProgress"></i></div><b id="cabProgressTxt" style="font-size:12px">0%</b></div>
       <div id="cabForm" style="display:grid;grid-template-columns:1fr 1fr;gap:12px"></div>
     </section>
-    <div class="two">
-      <section class="panel">
-        <div class="ph"><div><h2 class="pt">Итог оценки</h2><span class="s">5 C's → класс и лимит</span></div></div>
-        <div id="cabResult"></div>
-      </section>
-      <section class="panel">
-        <div class="ph"><div><h2 class="pt">Заключение и решение</h2><span class="s">Для подписи; пишется в журнал</span></div></div>
-        <textarea id="cabMemo" style="width:100%;height:150px;font-size:12.5px" placeholder="Обоснование оценки, условия лимита..."></textarea>
-        <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
-          <button class="primary" onclick="riskDecide('одобрено')">Одобрить лимит</button>
-          <button onclick="riskDecide('наблюдение')">Наблюдение</button>
-          <button class="acc" onclick="riskDecide('отказ')">Отказ</button>
-          <button onclick="cabMemoFill()">Заполнить тезисами</button>
-        </div>
-      </section>
-    </div>
     <section class="panel">
-      <div class="ph"><div><h2 class="pt">Портфель на рассмотрении</h2><span class="s">Онбординг · Пересмотр · Наблюдение</span></div>
-        <span style="display:flex;gap:6px"><input id="rq" type="search" placeholder="Поиск..." oninput="renderRiskList()"><select id="rf" onchange="renderRiskList()"><option value="all">Все</option><option value="new">Онбординг</option><option value="review">Пересмотр</option><option value="watch">Наблюдение</option></select></span>
+      <div class="ph"><div><h2 class="pt">Итог оценки</h2><span class="s">5 C's → класс и лимит</span></div></div>
+      <div id="cabResult"></div>
+    </section>
+    <section class="panel">
+      <div class="ph"><div><h2 class="pt">Заключение и решение</h2><span class="s">Для подписи; пишется в журнал</span></div></div>
+      <textarea id="cabMemo" style="width:100%;height:150px;font-size:12.5px" placeholder="Обоснование оценки, условия лимита..."></textarea>
+      <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+        <button class="primary" onclick="riskDecide('одобрено')">Одобрить лимит</button>
+        <button onclick="riskDecide('наблюдение')">Наблюдение</button>
+        <button class="acc" onclick="riskDecide('отказ')">Отказ</button>
+        <button onclick="cabMemoFill()">Заполнить тезисами</button>
       </div>
-      <div class="tbl-wrap" style="max-height:280px"><table><thead><tr><th>Клиент / БИН</th><th>Статус</th><th>Класс</th><th>Реком. лимит</th></tr></thead><tbody id="riskList"></tbody></table></div>
     </section>
   </div>
 
@@ -647,17 +639,17 @@ function renderEval(){
     +bar('Character',SETTINGS.w.C1,r.cs.C1)+bar('Capacity',SETTINGS.w.C2,r.cs.C2)+bar('Capital',SETTINGS.w.C3,r.cs.C3)+bar('Collateral',SETTINGS.w.C4,r.cs.C4)+bar('Conditions',SETTINGS.w.C5,r.cs.C5)
     +`<div class="note">Рекомендуемый лимит отсрочки: <b>${mln(lim)}</b> (${Math.round((LIMITPCT[r.cls.c]||0)*100)}% от долга ${mln(c.debt)}). Веса: стандарт «${SETTINGS.preset}» (Character ${SETTINGS.w.C1} · Capacity ${SETTINGS.w.C2} · Capital ${SETTINGS.w.C3} · Collateral ${SETTINGS.w.C4} · Conditions ${SETTINGS.w.C5}). Источники: 5 C's of Credit; World Bank «Agricultural Sector Risk Assessment»; CGAP/RFILC smallholder scoring.</div>`;
 }
-function fakeUpload(){const c=C(+$('evalSel').value)||DB.clients[0];const f=ensureFin(c);const s=(c.id*9301)%7;['rev','ocf','assets','equity','debt','ca','cl','np'].forEach(k=>{f[k]=Math.round(f[k]*(1+((s-3)/50))/1e6)*1e6;});f.loaded=true;renderEval();renderRiskList();alert('Отчётность загружена (демо): Баланс, ОДДС, ОПиУ.');}
+function fakeUpload(){const c=C(+$('evalSel').value)||DB.clients[0];const f=ensureFin(c);const s=(c.id*9301)%7;['rev','ocf','assets','equity','debt','ca','cl','np'].forEach(k=>{f[k]=Math.round(f[k]*(1+((s-3)/50))/1e6)*1e6;});f.loaded=true;renderEval();alert('Отчётность загружена (демо): Баланс, ОДДС, ОПиУ.');}
 function cabMemoFill(){const id=+$('evalSel').value;const c=C(id);const f=ensureFin(c);const r=q5c(c,f);const lim=Math.round(c.debt*(LIMITPCT[r.cls.c]||0));const weak=[['Character',r.cs.C1],['Capacity',r.cs.C2],['Capital',r.cs.C3],['Collateral',r.cs.C4],['Conditions',r.cs.C5]].filter(x=>x[1]<60).map(x=>x[0]).join(', ')||'нет';$('cabMemo').value=`Оценка AgroControl от ${today()} по методике 5 C's of Credit (взвешенно).\nИтог: ${r.total}/100, класс ${r.cls.c}.\nСлабые факторы: ${weak}.\nРекомендуемый лимит отсрочки: ${mln(lim)}.\nУсловия: контроль DPD, пересмотр по событию.`;}
-function renderRiskList(){
+function renderRiskList(){if(!$('riskList'))return;
   const q=(($('rq')||{}).value||'').toLowerCase();const fl=($('rf')||{}).value||'all';
   let list=DB.clients.slice(0,60).filter(c=>(c.name+c.bin).toLowerCase().includes(q));
   if(fl!=='all') list=list.filter(c=>statusOf(c)===fl);
   $('riskList').innerHTML=list.map(c=>{const f=ensureFin(c);const r=q5c(c,f);const st=statusOf(c);return `<tr onclick="openRating(${c.id})"><td>${esc(c.name)}<div style="color:var(--muted);font-size:11px">${c.bin}</div></td><td><span class="pill ${st==='watch'?'r':st==='review'?'b':'y'}">${statusLbl(st)}</span></td><td><span class="pill" style="background:${r.cls.color};color:#fff">${r.cls.c}</span></td><td>${mln(Math.round(c.debt*(LIMITPCT[r.cls.c]||0)))}</td></tr>`;}).join('')||'<tr><td colspan="4" style="color:var(--muted)">Нет записей.</td></tr>';
 }
 function riskDecide(act){const id=+$('evalSel').value;const c=C(id);const r=q5c(c,ensureFin(c));const lim=Math.round(c.debt*(LIMITPCT[r.cls.c]||0));const memo=($('cabMemo')||{}).value||'';DB.decisions.unshift({c:id,t:nowStr(),by:'Риск-менеджер',act:'Оценка: '+act,reason:`Класс ${r.cls.c} (${r.total}/100), лимит ${mln(lim)}. ${memo}`.trim()});save();renderJournal();alert('Решение рисковика записано в журнал.');}
-function renderRating(){renderRiskList();}
-function openRating(id){setStage('s2');const s=$('evalSel');if(s)s.value=String(id);renderEval();renderRiskList();}
+function renderRating(){}
+function openRating(id){setStage('s2');const s=$('evalSel');if(s)s.value=String(id);renderEval();}
 function renderRatingCard(){}
 
 /* ====== BRIEF / EXPORT ====== */
