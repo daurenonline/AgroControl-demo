@@ -105,6 +105,7 @@
       </div>
       <div id="agentLog"><span class="m">Агент не запущен. Нажмите «Запустить агента».</span></div>
     </div>
+    <div id="agentReport" style="margin-top:14px"></div>
   </section>
 
   <!-- STAGE 1 -->
@@ -170,7 +171,7 @@
 
 <script>
 'use strict';
-const LSKEY='agrocontrol-demo-v3';
+const LSKEY='agrocontrol-demo-v4';
 const $=id=>document.getElementById(id);
 const money=n=>n.toLocaleString('ru-RU')+' ₸';
 const mln=n=>(n/1e6).toLocaleString('ru-RU',{maximumFractionDigits:1})+' млн ₸';
@@ -180,10 +181,11 @@ const prevDay=n=>{const d=new Date();d.setDate(d.getDate()-n);return d.toISOStri
 const plusDay=n=>{const d=new Date();d.setDate(d.getDate()+n);return d.toISOString().slice(0,10);};
 const nowStr=()=>new Date().toLocaleString('ru-RU',{hour12:false}).replace(',','');
 
-/* ====== Допущения (редактируемые) ====== */
-const AVG_CHECK=5_000_000;        // средний чек одной поставки пестицидов, ₸ (допущение)
-const SEASON_PER_CLIENT=15_000_000; // сезонный оборот на клиента, ₸ (допущение)
-const THRESH={y:3,o:7};            // DPD: <=3 жёлтый, 4–7 оранжевый, >7 красный
+/* ====== Допущения (редактируемые) ======
+   Пестициды ≈ 10 000–15 000 ₸/га; средняя площадь клиента ~2 000–3 000 га;
+   сезонный оборот на клиента ≈ 30–40 млн ₸ (2–3 поставки). Ниже — средняя дебиторка клиента. */
+const SEASON_PER_CLIENT=36_000_000; // средняя дебиторка на клиента, ₸ (допущение)
+const THRESH={y:3,o:7};             // DPD: <=3 жёлтый, 4–7 оранжевый, >7 красный
 
 /* ====== Псевдослучайный генератор (стабильные данные) ====== */
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
@@ -211,7 +213,7 @@ function generate(){
     else off=8+Math.floor(r()*35);              // 8–42
     const due = off>=0 ? prevDay(off) : plusDay(-off);
     const dpd = off>0 ? off : 0;
-    const debt = Math.round((3+r()*22)*1e6/100000)*100000; // 3–25 млн, округл. до 100к
+    const debt = Math.round((12+r()*48)*1e6/500000)*500000; // 12–60 млн, шаг 0.5 млн
     clients.push({id:i,name,bin,region,user,debt,due,dpd,spPD:Math.round((1+r()*46)*10)/10});
     // события: чем больше просрочка, тем вероятнее
     let nEv=0, p= r();
@@ -260,7 +262,7 @@ function evidence(type,src){
 }
 
 /* ====== STATE ====== */
-let DB=load(); let filter={kpi:'all',color:'all',region:'all',q:''}; let current=1; let agentRunning=false;
+let DB=load(); let filter={kpi:'all',color:'all',region:'all',q:''}; let current=1;
 function load(){try{const r=localStorage.getItem(LSKEY);if(r)return JSON.parse(r);}catch(e){}const s=generate();try{localStorage.setItem(LSKEY,JSON.stringify(s));}catch(e){}return s;}
 function save(){try{localStorage.setItem(LSKEY,JSON.stringify(DB));}catch(e){}}
 function resetData(){if(confirm('Сбросить демо (500 компаний, синтетика)?')){localStorage.removeItem(LSKEY);DB=generate();save();current=1;renderAll();}}
@@ -285,7 +287,7 @@ function kpis(){
   let g=0,y=0,o=0,rd=0,debt=0,riskDebt=0;
   DB.clients.forEach(c=>{const col=colorOf(c);debt+=c.debt; if(col==='green')g++;else if(col==='yellow')y++;else if(col==='orange')o++;else{rd++;riskDebt+=c.debt;}});
   const critEvents=DB.events.filter(e=>/Банкротство|>90/.test(e.type)).length;
-  return {g,y,o,rd,debt,riskDebt,critEvents,total:DB.clients.length,avg:AVG_CHECK,portfolio:DB.clients.length*SEASON_PER_CLIENT};
+  return {g,y,o,rd,debt,riskDebt,critEvents,total:DB.clients.length,portfolio:DB.clients.length*SEASON_PER_CLIENT};
 }
 const kpiDefs=[
   {k:'all',lbl:'Всего компаний',cls:'',v:k=>k.total},
@@ -294,11 +296,10 @@ const kpiDefs=[
   {k:'orange',lbl:'🟠 4–7 дней',cls:'o',v:k=>k.o},
   {k:'red',lbl:'🔴 >7 дней / критично',cls:'r',v:k=>k.rd},
   {k:'debt',lbl:'Дебиторка портфеля',cls:'',v:k=>mln(k.debt)},
-  {k:'riskdebt',lbl:'Долг в зоне риска (🟠+🔴)',cls:'r',v:k=>mln(k.riskDebt)},
-  {k:'avg',lbl:'Средний чек (допущение)',cls:'',v:k=>mln(k.avg)}
+  {k:'riskdebt',lbl:'Долг в зоне риска (🟠+🔴)',cls:'r',v:k=>mln(k.riskDebt)}
 ];
 function renderKPI(){$('stats').innerHTML=kpiDefs.map(x=>{const k=kpis();return `<div class="stat ${x.cls} ${filter.kpi===x.k?'active':''}" onclick="setKpi('${x.k}')"><div class="lbl">${x.lbl}</div><strong>${x.v(k)}</strong></div>`;}).join('');}
-function setKpi(k){filter.kpi=k;renderTable();renderKPI();}
+function setKpi(k){filter.kpi=k;if(['green','yellow','orange','red'].includes(k)){$('fColor').value=k;}else{$('fColor').value='all';}renderTable();renderKPI();const el=document.getElementById('rows');if(el)el.closest('.panel').scrollIntoView({behavior:'smooth',block:'start'});}
 
 /* ====== TABLE ====== */
 function fillRegions(){const sel=$('fRegion');REGIONS.slice().forEach(rg=>{const o=document.createElement('option');o.value=rg;o.textContent=rg;sel.appendChild(o);});}
@@ -331,36 +332,72 @@ function renderCard(){
 function decideClient(id){const c=C(id);const reason=prompt('Решение/комментарий (в журнал):','Связаться с клиентом по просрочке');if(reason===null)return;DB.decisions.unshift({c:id,t:nowStr(),by:c.user,act:'Подтверждено',reason:reason});save();renderJournal();alert('Сохранено в журнал.');}
 
 /* ====== AGENT ====== */
+const AGENT_SOURCES=[
+ {k:'КГД',ok:true},
+ {k:'АИС ОИП',ok:true},
+ {k:'Кредитное бюро',ok:true},
+ {k:'ГБД ЮЛ',ok:true},
+ {k:'Судебные дела',ok:false,note:'нет массового API — точечно, с ЭЦП'}
+];
+let agentRunning=false, agentState=null;
 function runAgent(){
   if(agentRunning)return;agentRunning=true;$('runBtn').disabled=true;
-  const log=$('agentLog');log.innerHTML='';const bar=$('agentBar');bar.style.width='0%';
-  const list=DB.clients;let i=0;const cnt={g:0,y:0,o:0,r:0};
+  const log=$('agentLog');log.innerHTML='';$('agentBar').style.width='0%';$('agentReport').innerHTML='';
+  agentState={full:0,partial:0,notChecked:[],srcCounts:{},findings:{},checked:0,col:{green:0,yellow:0,orange:0,red:0}};
+  AGENT_SOURCES.forEach(s=>agentState.srcCounts[s.k]=0);
+  addLogLine('m','Подключение к базам: '+AGENT_SOURCES.map(s=>s.k+(s.ok?' ✓':' ⚠')).join(' · '));
+  const list=DB.clients;let i=0;
   const step=()=>{
-    if(i>=list.length){finishAgent(cnt);return;}
-    const batch=Math.min(10,list.length-i);
-    for(let k=0;k<batch;k++){const c=list[i++];const col=colorOf(c);cnt[col[0]]=(cnt[col[0]]||0)+1;addLog(c,col);}
-    bar.style.width=Math.round(i/list.length*100)+'%';
-    $('agentKPI').innerHTML=`<span class="dot g"></span>${cnt.g} <span class="dot y"></span>${cnt.y} <span class="dot o"></span>${cnt.o} <span class="dot r"></span>${cnt.r} · проверено ${i}/${list.length}`;
-    setTimeout(step,40);
+    if(i>=list.length){agentRunning=false;$('runBtn').disabled=false;finishAgent();return;}
+    const batch=Math.min(8,list.length-i);
+    for(let k=0;k<batch;k++){processCompany(list[i++]);}
+    $('agentBar').style.width=Math.round(i/list.length*100)+'%';
+    const s=agentState;
+    $('agentKPI').innerHTML=`<span class="dot g"></span>${s.col.green} <span class="dot y"></span>${s.col.yellow} <span class="dot o"></span>${s.col.orange} <span class="dot r"></span>${s.col.red} · проверено ${s.checked}/${DB.clients.length} · не проверено ${s.notChecked.length}`;
+    setTimeout(step,35);
   };
   setTimeout(step,50);
 }
-function addLog(c,col){
-  const log=$('agentLog');const line=document.createElement('div');
-  const srcs=['КГД','АИС ОИП','Кредитное бюро','ГБД ЮЛ'];
+function processCompany(c){
+  const col=colorOf(c);
+  const notChk=(c.id*13)%149===0;      // ~0.7% не проверено
+  const partial=(c.id*7)%31===0;       // ~3% частично
+  agentState.checked++;
+  if(notChk) agentState.notChecked.push({name:c.name,reason:'таймаут КГД — источник недоступен'});
+  else if(partial) agentState.partial++; else agentState.full++;
+  AGENT_SOURCES.forEach(s=>{ if(s.ok && !notChk && !(partial&&s.k==='Кредитное бюро')) agentState.srcCounts[s.k]++; });
   const found=eventsOf(c.id);
-  const cls=col[0];
-  line.className=cls;
-  line.textContent=`#${String(c.id).padStart(3,'0')} ${c.name} | ${c.bin} | `+srcs.map(s=>s+':OK').join(' ')+` | DPD ${c.dpd||0}д`+(found.length?` | найдено: ${found.map(e=>e.type).join(', ')}`:'')+` → ${COLORLBL[col].toUpperCase()}`;
-  log.appendChild(line);log.scrollTop=log.scrollHeight;
+  found.forEach(e=>{agentState.findings[e.type]=(agentState.findings[e.type]||0)+1;});
+  agentState.col[col]++;
+  addLogLine(col[0], `#${String(c.id).padStart(3,'0')} ${c.name} | КГД:${notChk?'✗':'OK'} АИС:${notChk?'—':'OK'} БЮРО:${(partial||notChk)?'—':'OK'} ГБД:${notChk?'—':'OK'} | DPD ${c.dpd||0}д`+(found.length?` | найдено: ${found.map(e=>e.type).join(', ')}`:'')+` → ${COLORLBL[col].toUpperCase()}`);
 }
-function finishAgent(cnt){
-  agentRunning=false;$('runBtn').disabled=false;
-  const log=$('agentLog');const d=document.createElement('div');d.className='m';
-  d.textContent=`\n=== Проход завершён: ${DB.clients.length} компаний. Найдено событий: ${DB.events.length}. `+
-    `🟢${cnt.g} 🟡${cnt.y} 🟠${cnt.o} 🔴${cnt.r}. Долг в зоне риска: ${mln(kpis().riskDebt)} ===`;
-  log.appendChild(d);
-  DB.decisions.unshift({c:DB.clients[0].id,t:nowStr(),by:'Агент',act:'Проход завершён',reason:`Проверено ${DB.clients.length}, критично ${cnt.r}`});
+function addLogLine(cls,text){const log=$('agentLog');const d=document.createElement('div');d.className=cls;d.textContent=text;log.appendChild(d);while(log.childElementCount>250)log.removeChild(log.firstChild);log.scrollTop=log.scrollHeight;}
+function finishAgent(){
+  const s=agentState,k=kpis();
+  const srcRows=AGENT_SOURCES.map(x=>{const cnt=s.srcCounts[x.k]||0;const st=x.ok?(cnt>=DB.clients.length?'полное покрытие':cnt>0?'частично':'нет'):'не подключено';const cl=x.ok?(cnt>=DB.clients.length?'g':cnt>0?'y':'r'):'r';return `<tr><td>${esc(x.k)}</td><td>${x.ok?cnt+' / '+DB.clients.length:'—'}</td><td><span class="pill ${cl}">${st}</span></td><td>${esc(x.note||'')}</td></tr>`;}).join('');
+  const findRows=Object.entries(s.findings).sort((a,b)=>b[1]-a[1]).map(([t,n])=>`<tr><td>${esc(t)}</td><td style="text-align:center">${n}</td></tr>`).join('')||'<tr><td colspan="2" style="color:var(--muted)">Событий не найдено</td></tr>';
+  const notChkList=s.notChecked.length?s.notChecked.slice(0,10).map(x=>`<li>${esc(x.name)} — ${esc(x.reason)}</li>`).join(''):'<li>Все компании проверены полностью.</li>';
+  $('agentReport').innerHTML=`
+   <div class="ph" style="margin-top:6px"><h3 class="pt" style="font-size:13px">Отчёт агента</h3><span class="s">Проход по ${DB.clients.length} компаниям</span></div>
+   <div class="two" style="gap:14px">
+     <div>
+       <div style="font-weight:700;font-size:12px;margin-bottom:6px">1. Базы данных, к которым зашёл агент</div>
+       <div class="tbl-wrap" style="max-height:none"><table class="risk"><thead><tr><th>База</th><th>Проверено</th><th>Статус</th><th>Примечание</th></tr></thead><tbody>${srcRows}</tbody></table></div>
+       <div style="font-weight:700;font-size:12px;margin:12px 0 6px">2. Покрытие проверки</div>
+       <div style="font-size:12.5px">Полностью: <b>${s.full}</b> · частично: <b>${s.partial}</b> · <b>не проверено: ${s.notChecked.length}</b></div>
+       <div style="font-weight:700;font-size:12px;margin:10px 0 4px">Кого не проверил</div>
+       <ul style="font-size:12px;margin:0;padding-left:18px">${notChkList}</ul>
+     </div>
+     <div>
+       <div style="font-weight:700;font-size:12px;margin-bottom:6px">3. Что выявлено</div>
+       <div class="tbl-wrap" style="max-height:none"><table class="risk"><thead><tr><th>Тип события</th><th style="text-align:center">Найдено</th></tr></thead><tbody>${findRows}</tbody></table></div>
+       <div style="font-weight:700;font-size:12px;margin:12px 0 6px">4. Итог по цветам</div>
+       <div style="font-size:12.5px"><span class="dot g"></span>${s.col.green} в срок · <span class="dot y"></span>${s.col.yellow} ≤3 дн · <span class="dot o"></span>${s.col.orange} 4–7 дн · <span class="dot r"></span>${s.col.red} критично</div>
+       <div style="font-size:12.5px;margin-top:6px">Долг в зоне риска (🟠+🔴): <b>${mln(k.riskDebt)}</b></div>
+       <div class="note" style="margin-top:8px">Судебные дела массово не покрыты (нужна точечная проверка с ЭЦП). Отсутствие записи ≠ отсутствие риска.</div>
+     </div>
+   </div>`;
+  DB.decisions.unshift({c:DB.clients[0].id,t:nowStr(),by:'Агент',act:'Проход завершён',reason:`Проверено ${s.checked}, не проверено ${s.notChecked.length}, критично ${s.col.red}`});
   save();renderJournal();renderEventsTop();
 }
 function renderEventsTop(){
@@ -395,8 +432,7 @@ function toggleBrief(){const b=$('briefBox');if(b.style.display==='block'){b.sty
 function briefText(){const k=kpis();return ['СПРАВКА — AgroControl (демо, синтетика)','Дата: '+today(),'',
  'Портфель: '+k.total+' компаний. Дебиторка '+mln(k.debt)+'.','🟢 '+k.g+' · 🟡 '+k.y+' · 🟠 '+k.o+' · 🔴 '+k.rd,
  'Долг в зоне риска (🟠+🔴): '+mln(k.riskDebt),'Критичных событий: '+k.critEvents,'',
- 'Допущения: средний чек поставки '+mln(k.avg)+'; сезон на клиента '+mln(SEASON_PER_CLIENT)+'; портфель '+mln(k.portfolio),
- 'Пороги DPD: ≤3 жёлтый, 4–7 оранжевый, >7 красный.','',
+ 'Допущения: средняя дебиторка на клиента '+mln(SEASON_PER_CLIENT)+'; портфель '+mln(k.portfolio),'Пороги DPD: ≤3 жёлтый, 4–7 оранжевый, >7 красный.','',
  'Оговорка: данные синтетические; интеграций нет; рейтинг — условный второй этап.'].join('\n');}
 function exportJSON(){const blob=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='agrocontrol-500-demo.json';a.click();}
 
