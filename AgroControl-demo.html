@@ -457,8 +457,12 @@ function nextCheck(c){return c.lastCheck?addDays(c.lastCheck,cadence(c)):today()
 function severity(c){const col=colorOf(c);return col==='red'?0:col==='orange'?1:col==='yellow'?2:3;}
 function plan(){
   const due=DB.clients.filter(c=>nextCheck(c)<=today()).sort((a,b)=>severity(a)-severity(b)||b.debt-a.debt);
-  const selected=[],deferred=[];let checks=0;
-  for(const c of due){ if(checks+1<=CHECK_LIMIT){selected.push(c);checks+=1;} else deferred.push(c); }
+  const greens=due.filter(c=>colorOf(c)==='green');
+  const nonGreen=due.filter(c=>colorOf(c)!=='green');
+  const routine=Math.min(greens.length,60);            // плановые проверки «зелёных» (месячная каденция)
+  const selected=nonGreen.slice(0,CHECK_LIMIT-routine).concat(greens.slice(0,routine));
+  const deferred=due.filter(c=>selected.indexOf(c)<0);
+  const checks=selected.length;
   const byColor={red:0,orange:0,yellow:0,green:0};due.forEach(c=>byColor[colorOf(c)]++);
   const fullChecks=DB.clients.length;
   return {due:due.length,selected,deferred,checks,byColor,cost:checks*CHECK_COST,limit:CHECK_LIMIT,fullClients:DB.clients.length,fullChecks,fullCost:fullChecks*CHECK_COST};
@@ -498,7 +502,7 @@ function runAgent(full){
 function processCompany(c){
   const col0=colorOf(c);
   let fresh=null;
-  if(col0==='green' && (c.id%53===7)){ // агент НАХОДИТ новое событие у части «зелёных»
+  if(col0==='green' && (c.id%23===7)){ // агент НАХОДИТ новое событие у части «зелёных»
     const types=[['Налоговая задолженность','КГД',20],['Ограничение выписки ЭСФ','КГД',20],['Исполнительное производство','АИС ОИП',25]];
     const t=types[c.id%types.length];
     fresh={id:1e6+c.id,c:c.id,type:t[0],src:t[1],w:t[2],date:today(),det:today(),pub:prevDay(1+(c.id%5)),status:'новое',checks:1,evi:evidence(t[0],t[1])};
