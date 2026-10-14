@@ -97,7 +97,8 @@
   <!-- KPI colors -->
   <section class="stats" id="stats"></section>
 
-  <!-- AGENT -->
+  <!-- AGENT (раздел «Мониторинг»; на вкладке «Оценка» скрывается) -->
+  <div id="monExtraAgent">
   <section class="panel">
     <div class="ph"><div><h2 class="pt">Агент проверки · по графику</h2>
       <span class="s">Проверки по календарю и риску, а не ежедневно по всем: КГД → АИС ОИП → бюро → ГБД ЮЛ. Лимит 200 запросов/сутки.</span></div>
@@ -120,6 +121,7 @@
     </div>
     <div id="agentReport" style="margin-top:14px"></div>
   </section>
+  </div>
 
   <!-- WORK QUEUE + CONCENTRATION -->
   <div class="two" id="monExtra1">
@@ -792,7 +794,7 @@ function addPromise(cid,date,amount){DB.promises=DB.promises||[];DB.promises.pus
 function markPaid(cid){(DB.promises||[]).forEach(p=>{if(p.c===cid&&p.status==='ожидается')p.status='выполнено';});DB.decisions.unshift({c:cid,t:nowStr(),by:(C(cid)||{}).user||'—',act:'Оплата получена',reason:'Обещание выполнено'});save();renderKPI();renderQueue();renderCard();renderJournal();}
 
 /* ====== NAV ====== */
-function setStage(s){if(s==='s2'&&role!=='risk')s='s1';stage=s;$('tab-s1').classList.toggle('active',s==='s1');$('tab-s2').classList.toggle('active',s==='s2');$('stage1').style.display=s==='s1'?'block':'none';$('stage2').style.display=s==='s2'?'block':'none';['monExtra1','monExtra2','monExtra3'].forEach(id=>{const el=$(id);if(el)el.style.display=(s==='s1')?'':'none';});}
+function setStage(s){if(s==='s2'&&role!=='risk')s='s1';stage=s;$('tab-s1').classList.toggle('active',s==='s1');$('tab-s2').classList.toggle('active',s==='s2');$('stage1').style.display=s==='s1'?'block':'none';$('stage2').style.display=s==='s2'?'block':'none';['monExtra1','monExtra2','monExtra3','monExtraAgent'].forEach(id=>{const el=$(id);if(el)el.style.display=(s==='s1')?'':'none';});}
 function renderAll(){renderKPI();renderTable();renderCard();renderJournal();renderRisks();renderSources();renderTasks();renderRating();renderEval();renderEventsTop();renderPlan();renderQueue();renderAging();renderConc();renderTrend();renderSplit();}
 
 /* ====== INIT ====== */
