@@ -138,6 +138,11 @@
     <div id="agingBody"></div>
   </section>
 
+  <div class="two" id="monExtra3">
+    <section class="panel"><div class="ph"><div><h2 class="pt">Динамика риска (12 недель) — имитация</h2><span class="s">Синтетика: форма графика, не реальные данные</span></div></div><div id="trendBody"></div></section>
+    <section class="panel"><div class="ph"><div><h2 class="pt">Разбивка риска: регионы и менеджеры</h2><span class="s">Топ-5 по «зоне риска» (🟠+🔴)</span></div></div><div id="splitBody"></div></section>
+  </div>
+
   <!-- STAGE 1 -->
   <div id="stage1">
     <div class="two">
@@ -148,7 +153,8 @@
           <select id="fColor" onchange="renderTable()"><option value="all">Все цвета</option><option value="green">🟢 в срок</option><option value="yellow">🟡 ≤3 дн</option><option value="orange">🟠 4–7 дн</option><option value="red">🔴 &gt;7 дн / критично</option></select>
           <select id="fRegion" onchange="renderTable()"><option value="all">Все регионы</option></select>
         </div>
-        <div class="tbl-wrap"><table><thead><tr><th>Клиент / БИН</th><th>Регион</th><th>Долг</th><th>Срок</th><th>DPD</th><th>Статус</th><th>Менеджер продаж</th></tr></thead><tbody id="rows"></tbody></table></div>
+        <div class="tbl-wrap"><table><thead><tr><th>Клиент / БИН</th><th>Регион</th><th style="cursor:pointer" onclick="setSort('debt')">Долг ▾</th><th>Срок</th><th style="cursor:pointer" onclick="setSort('dpd')">DPD ▾</th><th>Статус</th><th>Менеджер продаж</th></tr></thead><tbody id="rows"></tbody></table></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:12px;color:var(--muted)"><span id="pageInfo"></span><span><button onclick="setPage(-1)" style="padding:3px 10px">‹ Назад</button> <button onclick="setPage(1)" style="padding:3px 10px">Вперёд ›</button></span></div>
       </section>
       <section class="panel">
         <div class="ph"><div><h2 class="pt" id="cardTitle">Карточка контрагента</h2><span class="s" id="cardSub">Выберите клиента</span></div></div>
@@ -335,7 +341,7 @@ function evidence(type,src){
 }
 
 /* ====== STATE ====== */
-let DB=load(); let filter={kpi:'all',color:'all',region:'all',q:''}; let current=null; let role='risk', manager=null; let stage='s1';
+let DB=load(); let filter={kpi:'all',color:'all',region:'all',q:''}; let current=null; let role='risk', manager=null; let stage='s1'; let sortKey='none',sortDir=-1,page=0; const PAGE=50;
 function load(){try{const r=localStorage.getItem(LSKEY);if(r)return JSON.parse(r);}catch(e){}const s=generate();try{localStorage.setItem(LSKEY,JSON.stringify(s));}catch(e){}return s;}
 function save(){try{localStorage.setItem(LSKEY,JSON.stringify(DB));}catch(e){}}
 function resetData(){if(confirm('Сбросить демо (500 компаний, синтетика)?')){localStorage.removeItem(LSKEY);DB=generate();save();current=1;renderAll();}}
@@ -385,6 +391,8 @@ function setKpi(k){filter.kpi=k;if(['green','yellow','orange','red'].includes(k)
 
 /* ====== TABLE ====== */
 function fillRegions(){const sel=$('fRegion');REGIONS.slice().forEach(rg=>{const o=document.createElement('option');o.value=rg;o.textContent=rg;sel.appendChild(o);});}
+function setSort(k){if(sortKey===k){sortDir=-sortDir;}else{sortKey=k;sortDir=-1;}page=0;renderTable();}
+function setPage(d){page=Math.max(0,page+d);renderTable();}
 function renderTable(){
   filter.q=$('q').value.trim().toLowerCase();filter.color=$('fColor').value;filter.region=$('fRegion').value;
   let list=scopedClients().slice();
@@ -395,9 +403,12 @@ function renderTable(){
   if(filter.color!=='all') list=list.filter(c=>colorOf(c)===filter.color);
   if(filter.region!=='all') list=list.filter(c=>c.region===filter.region);
   if(filter.q) list=list.filter(c=>(c.name+c.bin+c.region+c.user).toLowerCase().includes(filter.q));
+  if(sortKey==='debt') list.sort((a,b)=>sortDir*(a.debt-b.debt));
+  else if(sortKey==='dpd') list.sort((a,b)=>sortDir*((a.dpd||0)-(b.dpd||0)));
   $('tblCount').textContent=`${list.length} из ${DB.clients.length}`;
-  const shown=list.slice(0,200);
-  $('rows').innerHTML=shown.map(c=>{const col=colorOf(c);const dl=c.dpd>0?c.dpd+' дн':'—';return `<tr class="${current===c.id?'sel':''}" onclick="openCard(${c.id})"><td><span class="dot ${col[0]}"></span>${esc(c.name)}<div style="color:var(--muted);font-size:11px">${c.bin}</div></td><td>${esc(c.region)}</td><td>${money(c.debt)}</td><td>${c.due}</td><td>${dl}</td><td><span class="pill ${col==='green'?'g':col==='yellow'?'y':col==='orange'?'o':'r'}">${COLORLBL[col]}</span></td><td>${esc(c.user)}</td></tr>`;}).join('')+(list.length>200?`<tr><td colspan="7" style="color:var(--muted)">Показаны первые 200 из ${list.length} (уточните фильтр)</td></tr>`:'');
+  const pages=Math.max(1,Math.ceil(list.length/PAGE)); if(page>pages-1)page=pages-1; const shown=list.slice(page*PAGE,page*PAGE+PAGE);
+  $('pageInfo').textContent=`Стр. ${page+1} из ${pages} · показано ${shown.length}`;
+  $('rows').innerHTML=shown.length?shown.map(c=>{const col=colorOf(c);const dl=c.dpd>0?c.dpd+' дн':'—';return `<tr class="${current===c.id?'sel':''}" onclick="openCard(${c.id})"><td><span class="dot ${col[0]}"></span>${esc(c.name)}<div style="color:var(--muted);font-size:11px">${c.bin}</div></td><td>${esc(c.region)}</td><td>${money(c.debt)}</td><td>${c.due}</td><td>${dl}</td><td><span class="pill ${col==='green'?'g':col==='yellow'?'y':col==='orange'?'o':'r'}">${COLORLBL[col]}</span></td><td>${esc(c.user)}</td></tr>`;}).join(''):'<tr><td colspan="7" style="color:var(--muted)">Нет записей по фильтру.</td></tr>';
 }
 function openCard(id){current=id;setStage('s1');renderCard();renderTable();}
 function renderCard(){
@@ -760,6 +771,20 @@ function renderAging(){ const list=scopedClients(); const total=list.reduce((s,c
 /* ====== CONCENTRATION ====== */
 function renderConc(){ const all=scopedClients(); const total=all.reduce((s,c)=>s+c.debt,0)||1; const list=all.slice().sort((a,b)=>b.debt-a.debt).slice(0,10); $('concSub').textContent='Доля топ-10: '+Math.round(list.reduce((s,c)=>s+c.debt,0)/total*100)+'%'; $('concBody').innerHTML=list.map((c,i)=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid #eef1f4"><span>${i+1}. ${esc(c.name)}<span style="color:var(--muted)"> · ${esc(c.region)}</span></span><b>${mln(c.debt)} · ${(c.debt/total*100).toFixed(1)}%</b></div>`).join(''); }
 
+/* ====== ДИНАМИКА (имитация) ====== */
+function renderTrend(){const el=$('trendBody');if(!el)return;const k=kpis(scopedClients());const base=k.riskDebt;const reds=k.rd;
+  const pts=[],redp=[];for(let w=0;w<12;w++){const f=0.72+0.28*(w/11)+Math.sin(w*1.3)*0.03;const f2=0.7+0.3*(w/11)+Math.cos(w*1.1)*0.05;pts.push(Math.max(0,base*f));redp.push(Math.max(0,reds*f2));}
+  const max=Math.max.apply(null,pts)||1;const W=340,H=120,step=W/11;
+  const path=(arr)=>arr.map((v,i)=>`${(i*step).toFixed(1)},${(H-(v/max)*(H-10)).toFixed(1)}`).join(' ');
+  el.innerHTML=`<svg viewBox="0 0 ${W} ${H+20}" style="width:100%;height:150px"><polyline points="${path(pts)}" fill="none" stroke="#D4593A" stroke-width="2"/><polyline points="${path(redp)}" fill="none" stroke="#132C43" stroke-width="1.5" stroke-dasharray="4 3"/><text x="0" y="${H+14}" font-size="9" fill="#536270">нед.1</text><text x="${W-30}" y="${H+14}" font-size="9" fill="#536270">нед.12</text></svg>
+   <div style="font-size:12px;color:var(--muted);margin-top:4px"><span style="color:#D4593A">— зона риска, ₸</span> · <span style="color:#132C43">-- красные, шт</span></div>
+   <div style="font-size:12px;margin-top:4px">Сейчас: зона риска <b>${mln(base)}</b> · красных <b>${reds}</b>. Тренд условный (имитация).</div>`;}
+/* ====== РАЗБИВКА ====== */
+function renderSplit(){const el=$('splitBody');if(!el)return;const list=scopedClients();const riskDebtOf=c=>['orange','red'].includes(colorOf(c))?c.debt:0;
+  const byRegion={},byUser={};list.forEach(c=>{const rd=riskDebtOf(c);byRegion[c.region]=(byRegion[c.region]||0)+rd;byUser[c.user]=(byUser[c.user]||0)+rd;});
+  const top=o=>Object.entries(o).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([n,v])=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px dashed #eef1f4"><span>${esc(n)}</span><b>${mln(v)}</b></div>`).join('');
+  el.innerHTML=`<div style="font-weight:700;font-size:12px;margin-bottom:4px">Регионы</div>${top(byRegion)}<div style="font-weight:700;font-size:12px;margin:10px 0 4px">Менеджеры продаж</div>${top(byUser)}`;}
+
 /* ====== WORK QUEUE ====== */
 const ACTION={red:'Позвонить + юридическая проверка',orange:'Напомнить об оплате, уточнить график',yellow:'Напомнить об оплате'};
 function renderQueue(){ const list=scopedClients().filter(c=>['red','orange','yellow'].includes(colorOf(c))).sort((a,b)=>severity(a)-severity(b)||b.debt-a.debt); $('queueSub').textContent=`${list.length} компаний требуют действия`+(role==='manager'&&manager?` · ${esc(manager)}`:''); const show=list.slice(0,25); $('queueBody').innerHTML=show.map(c=>{const col=colorOf(c);const pr=(DB.promises||[]).filter(p=>p.c===c.id&&p.status==='ожидается');const prHtml=pr.map(p=>`<div style="font-size:11.5px;margin-top:2px;color:${p.date<today()?'var(--red)':'var(--muted)'}">обещание до ${p.date} · ${mln(p.amount)} · ${p.date<today()?'⏳ не выполнено':'ожидается'}</div>`).join('');return `<div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;padding:7px 0;border-bottom:1px solid #eef1f4"><div><span class="dot ${col[0]}"></span><b style="font-size:12.5px">${esc(c.name)}</b><div style="color:var(--muted);font-size:11px">${esc(c.region)} · ${esc(c.user)} · DPD ${c.dpd||0} дн · долг ${mln(c.debt)}</div><div style="font-size:11.5px;margin-top:2px">${ACTION[col]}</div>${prHtml}</div><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${contactButtons(c)}${pr.length?`<button onclick="markPaid(${c.id})" style="white-space:nowrap">Оплачено</button>`:''}<button class="primary" onclick="decideClient(${c.id},'Подтверждено')" style="white-space:nowrap">В работу</button></div></div>`;}).join('')+(list.length>25?`<div style="color:var(--muted);font-size:11.5px;padding-top:6px">Показаны первые 25 из ${list.length}</div>`:''); }
@@ -767,8 +792,8 @@ function addPromise(cid,date,amount){DB.promises=DB.promises||[];DB.promises.pus
 function markPaid(cid){(DB.promises||[]).forEach(p=>{if(p.c===cid&&p.status==='ожидается')p.status='выполнено';});DB.decisions.unshift({c:cid,t:nowStr(),by:(C(cid)||{}).user||'—',act:'Оплата получена',reason:'Обещание выполнено'});save();renderKPI();renderQueue();renderCard();renderJournal();}
 
 /* ====== NAV ====== */
-function setStage(s){if(s==='s2'&&role!=='risk')s='s1';stage=s;$('tab-s1').classList.toggle('active',s==='s1');$('tab-s2').classList.toggle('active',s==='s2');$('stage1').style.display=s==='s1'?'block':'none';$('stage2').style.display=s==='s2'?'block':'none';['monExtra1','monExtra2'].forEach(id=>{const el=$(id);if(el)el.style.display=(s==='s1')?'':'none';});}
-function renderAll(){renderKPI();renderTable();renderCard();renderJournal();renderRisks();renderSources();renderTasks();renderRating();renderEval();renderEventsTop();renderPlan();renderQueue();renderAging();renderConc();}
+function setStage(s){if(s==='s2'&&role!=='risk')s='s1';stage=s;$('tab-s1').classList.toggle('active',s==='s1');$('tab-s2').classList.toggle('active',s==='s2');$('stage1').style.display=s==='s1'?'block':'none';$('stage2').style.display=s==='s2'?'block':'none';['monExtra1','monExtra2','monExtra3'].forEach(id=>{const el=$(id);if(el)el.style.display=(s==='s1')?'':'none';});}
+function renderAll(){renderKPI();renderTable();renderCard();renderJournal();renderRisks();renderSources();renderTasks();renderRating();renderEval();renderEventsTop();renderPlan();renderQueue();renderAging();renderConc();renderTrend();renderSplit();}
 
 /* ====== INIT ====== */
 fillRegions();fillManagers();fillEvalSel();renderAll();setStage('s1');
