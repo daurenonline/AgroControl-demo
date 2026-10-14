@@ -87,6 +87,8 @@
     <span style="display:flex;gap:6px;flex-wrap:wrap">
       <button onclick="toggleBrief()">Справка</button>
       <button onclick="exportJSON()">Экспорт JSON</button>
+      <button onclick="exportJournalCSV()">Журнал CSV</button>
+      <button onclick="demoScript()">Сценарий демо</button>
       <button onclick="resetData()">Сброс</button>
     </span>
   </div>
@@ -219,7 +221,7 @@
 
 <script>
 'use strict';
-const LSKEY='agrocontrol-demo-v9';
+const LSKEY='agrocontrol-demo-v10';
 const $=id=>document.getElementById(id);
 const money=n=>n.toLocaleString('ru-RU')+' ₸';
 const mln=n=>(n/1e6).toLocaleString('ru-RU',{maximumFractionDigits:1})+' млн ₸';
@@ -315,6 +317,12 @@ function generate(){
       {name:'Бенефициары (АФМ)',url:'—',what:'Реестр закрыт',status:'не подтверждено'},
       {name:'S&P MI RiskGauge',url:'spglobal.com',what:'Внешний PD по частным компаниям',status:'не подтверждено'},
       {name:'Агрегаторы ADATA/Kompra',url:'adata.kz / kompra.kz',what:'Проверки контрагентов; API отдельно',status:'подтверждено'}
+    ],
+    promises:[
+      {c:1,date:prevDay(2),amount:6000000,status:'ожидается'},
+      {c:4,date:plusDay(4),amount:3000000,status:'ожидается'},
+      {c:6,date:prevDay(6),amount:1500000,status:'ожидается'},
+      {c:3,date:plusDay(8),amount:1000000,status:'ожидается'}
     ]};
 }
 function evidence(type,src){
@@ -358,7 +366,9 @@ function kpis(list){
   let g=0,y=0,o=0,rd=0,debt=0,riskDebt=0;
   list.forEach(c=>{const col=colorOf(c);debt+=c.debt; if(col==='green')g++;else if(col==='yellow')y++;else if(col==='orange')o++;else{rd++;riskDebt+=c.debt;}});
   const critEvents=DB.events.filter(e=>/Банкротство|>90/.test(e.type)).length;
-  return {g,y,o,rd,debt,riskDebt,critEvents,total:list.length,portfolio:list.length*SEASON_PER_CLIENT};
+  const overdue=(DB.promises||[]).filter(p=>p.status==='ожидается'&&p.date<today());
+  const promisesSum=overdue.reduce((s,p)=>s+p.amount,0);
+  return {g,y,o,rd,debt,riskDebt,critEvents,promisesSum,promisesCount:overdue.length,total:list.length,portfolio:list.length*SEASON_PER_CLIENT};
 }
 const kpiDefs=[
   {k:'all',lbl:'Всего компаний',cls:'',v:k=>k.total},
@@ -367,7 +377,8 @@ const kpiDefs=[
   {k:'orange',lbl:'🟠 4–7 дней',cls:'o',v:k=>k.o},
   {k:'red',lbl:'🔴 >7 дней / критично',cls:'r',v:k=>k.rd},
   {k:'debt',lbl:'Дебиторка портфеля',cls:'',v:k=>mln(k.debt)},
-  {k:'riskdebt',lbl:'Долг в зоне риска (🟠+🔴)',cls:'r',v:k=>mln(k.riskDebt)}
+  {k:'riskdebt',lbl:'Долг в зоне риска (🟠+🔴)',cls:'r',v:k=>mln(k.riskDebt)},
+  {k:'promises',lbl:'Обещания не выполнены',cls:'r',v:k=>mln(k.promisesSum)+' · '+k.promisesCount}
 ];
 function renderKPI(){$('stats').innerHTML=kpiDefs.map(x=>{const k=kpis(scopedClients());return `<div class="stat ${x.cls} ${filter.kpi===x.k?'active':''}" onclick="setKpi('${x.k}')"><div class="lbl">${x.lbl}</div><strong>${x.v(k)}</strong></div>`;}).join('');}
 function setKpi(k){filter.kpi=k;if(['green','yellow','orange','red'].includes(k)){$('fColor').value=k;}else{$('fColor').value='all';}renderTable();renderKPI();const el=document.getElementById('rows');if(el)el.closest('.panel').scrollIntoView({behavior:'smooth',block:'start'});}
@@ -379,6 +390,7 @@ function renderTable(){
   let list=scopedClients().slice();
   if(filter.kpi!=='all'&&['green','yellow','orange','red'].includes(filter.kpi)) list=list.filter(c=>colorOf(c)===filter.kpi);
   if(filter.kpi==='riskdebt') list=list.filter(c=>['orange','red'].includes(colorOf(c)));
+  if(filter.kpi==='promises') list=list.filter(c=>(DB.promises||[]).some(p=>p.c===c.id&&p.status==='ожидается'&&p.date<today()));
   if(filter.kpi==='debt') list=list.filter(c=>c.debt>0);
   if(filter.color!=='all') list=list.filter(c=>colorOf(c)===filter.color);
   if(filter.region!=='all') list=list.filter(c=>c.region===filter.region);
@@ -391,7 +403,7 @@ function openCard(id){current=id;setStage('s1');renderCard();renderTable();}
 function renderCard(){
   const c=C(current);if(!c)return;$('cardTitle').textContent='Карточка: '+c.name;$('cardSub').textContent='БИН '+c.bin+' · '+c.region+' · '+c.user;
   const col=colorOf(c);const evs=eventsOf(c.id).slice(0,20);
-  const evh=evs.length?evs.map(e=>`<div style="border-left:3px solid ${colorOf(c)==='red'?'var(--red)':colorOf(c)==='orange'?'var(--orange)':'var(--teal)'};background:#fbfdfe;padding:7px 10px;margin-bottom:6px;border-radius:0 5px 5px 0"><b style="font-size:12.5px">${esc(e.type)}</b><div style="color:var(--muted);font-size:11px">${esc(e.src)} (<a href="${SRCURL[e.src]||'#'}" target="_blank" style="color:var(--teal)">источник</a>) · обнаружено ${e.det||e.date}${e.pub?` · опубликовано ${e.pub}`:''} · проверок ${e.checks||1} · статус: ${esc(e.status||'новое')}</div><div style="font-size:11.5px">${esc(e.evi)}</div></div>`).join(''):'<p style="color:var(--muted);font-size:12px">Событий нет.</p>';
+  const evh=evs.length?evs.map(e=>`<div style="border-left:3px solid ${colorOf(c)==='red'?'var(--red)':colorOf(c)==='orange'?'var(--orange)':'var(--teal)'};background:#fbfdfe;padding:7px 10px;margin-bottom:6px;border-radius:0 5px 5px 0"><b style="font-size:12.5px">${esc(e.type)}</b><div style="color:var(--muted);font-size:11px">${esc(e.src)} (<a href="${SRCURL[e.src]||'#'}" target="_blank" style="color:var(--teal)">источник</a>) · обнаружено ${e.det||e.date}${e.pub?` · опубликовано ${e.pub}`:''} · проверок ${e.checks||1} · <span class="pill ${e.status==='закрыто'?'ok':e.status==='подтверждено'?'b':'y'}">${esc(e.status||'новое')}</span></div><div style="font-size:11.5px">${esc(e.evi)}</div><div style="margin-top:4px"><button onclick="evStatus(${c.id},${e.id},'подтверждено')" style="font-size:10.5px;padding:2px 8px">Подтверждено</button> <button onclick="evStatus(${c.id},${e.id},'закрыто')" style="font-size:10.5px;padding:2px 8px">Закрыто</button></div></div>`).join(''):'<p style="color:var(--muted);font-size:12px">Событий нет.</p>';
   $('cardBody').innerHTML=`
    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:12.5px">
      <div><b>Долг:</b> ${money(c.debt)}<br><b>Срок:</b> ${c.due}<br><b>Просрочка:</b> ${c.dpd>0?c.dpd+' дн':'нет'}<br><b>Цвет:</b> <span class="dot ${col[0]}"></span>${COLORLBL[col]}</div>
@@ -406,7 +418,8 @@ function renderCard(){
    <textarea id="letterBox" style="width:100%;height:130px;font-size:12px;font-family:Arial">${esc(letterText(c))}</textarea>
    <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><button onclick="copyText(letterText(C(${c.id})))">Скопировать письмо</button><button onclick="logContact(${c.id})">Зафиксировать отправку письма</button></div>`;
 }
-function decideClient(id,act){const c=C(id);act=act||'Подтверждено';const reason=prompt('Комментарий (в журнал):', act==='Подтверждено'?'Требуется реакция по просрочке/событию':act==='Несущественно'?'Событие признано несущественным':'Закрыто без действий');if(reason===null)return;DB.decisions.unshift({c:id,t:nowStr(),by:c.user,act:act,reason:reason});save();renderJournal();renderCard();alert('Сохранено в журнал: '+act+'.');}
+function evStatus(cid,eid,st){const e=DB.events.find(x=>x.id===eid);if(!e)return;e.status=st;const c=C(cid);DB.decisions.unshift({c:cid,t:nowStr(),by:c?c.user:'—',act:'Событие: '+st,reason:`${e.type} (${e.src}), обнаружено ${e.det||e.date}, проверок ${e.checks||1}`});save();renderCard();renderJournal();renderEventsTop();}
+function decideClient(id,act){const c=C(id);act=act||'Подтверждено';const reason=prompt('Комментарий (в журнал):', act==='Подтверждено'?'Требуется реакция по просрочке/событию':act==='Несущественно'?'Событие признано несущественным':'Закрыто без действий');if(reason===null)return;DB.decisions.unshift({c:id,t:nowStr(),by:c.user,act:act,reason:reason});if(act==='Подтверждено'){const d=prompt('Обещанная дата оплаты (ГГГГ-ММ-ДД), пусто — без обещания:',plusDay(10));if(d){const a=prompt('Обещанная сумма, ₸:',String(Math.min(c.debt,Math.round(c.debt*0.5))));if(a)addPromise(id,d,+a||0);}}save();renderJournal();renderCard();renderKPI();renderQueue();alert('Сохранено в журнал: '+act+'.');}
 
 /* ====== ОБРАЩЕНИЯ (агент готовит, человек отправляет) ====== */
 function draftText(c){
@@ -516,11 +529,11 @@ function processCompany(c){
   if(notChk) agentState.notChecked.push({name:c.name,reason:'таймаут КГД — источник недоступен'});
   else if(partial) agentState.partial++; else agentState.full++;
   AGENT_SOURCES.forEach(s=>{ if(s.ok && !notChk && !(partial&&s.k==='Кредитное бюро')) agentState.srcCounts[s.k]++; });
-  const found=eventsOf(c.id);
-  found.forEach(e=>{agentState.findings[e.type]=(agentState.findings[e.type]||0)+1;});
+  const found=eventsOf(c.id).filter(e=>e!==fresh);
+  found.forEach(e=>{e.checks=(e.checks||1)+1;agentState.findings[e.type]=(agentState.findings[e.type]||0)+1;});
   agentState.col[col]++;
   c.lastCheck=today();
-  addLogLine(col[0], `#${String(c.id).padStart(3,'0')} ${c.name} | КГД:${notChk?'✗':'OK'} АИС:${notChk?'—':'OK'} БЮРО:${(partial||notChk)?'—':'OK'} ГБД:${notChk?'—':'OK'} | DPD ${c.dpd||0}д`+(fresh?` | ⚠ НОВОЕ: ${fresh.type} (${fresh.src})`:found.length?` | найдено: ${found.map(e=>e.type).join(', ')}`:'')+` → ${COLORLBL[col].toUpperCase()}`);
+  addLogLine(col[0], `#${String(c.id).padStart(3,'0')} ${c.name} | КГД:${notChk?'✗':'OK'} АИС:${notChk?'—':'OK'} БЮРО:${(partial||notChk)?'—':'OK'} ГБД:${notChk?'—':'OK'} | DPD ${c.dpd||0}д`+(fresh?` | ⚠ НОВОЕ: ${fresh.type} (${fresh.src})`:found.length?` | повтор: ${found.length} соб., новых дублей нет`:'')+` → ${COLORLBL[col].toUpperCase()}`);
 }
 function addLogLine(cls,text){const log=$('agentLog');const d=document.createElement('div');d.className=cls;d.textContent=text;log.appendChild(d);while(log.childElementCount>250)log.removeChild(log.firstChild);log.scrollTop=log.scrollHeight;}
 function finishAgent(){
@@ -728,6 +741,8 @@ function briefText(){const k=kpis();return ['СПРАВКА — AgroControl (д�
  'Допущения: средняя дебиторка на клиента '+mln(SEASON_PER_CLIENT)+'; портфель '+mln(k.portfolio),'Пороги DPD: ≤3 жёлтый, 4–7 оранжевый, >7 красный.','',
  'Оговорка: данные синтетические; интеграций нет; рейтинг — условный второй этап.'].join('\n');}
 function exportJSON(){const blob=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='agrocontrol-500-demo.json';a.click();}
+function exportJournalCSV(){const rows=[['время','автор','клиент','решение','причина']].concat(DB.decisions.map(d=>{const c=C(d.c);return [d.t,d.by,c?c.name:'',d.act,(d.reason||'').replace(/[\n;]/g,' ')];}));const csv=rows.map(r=>r.map(x=>'"'+String(x==null?'':x).replace(/"/g,'""')+'"').join(';')).join('\r\n');const blob=new Blob(['\ufeff'+csv],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='agrocontrol-journal.csv';a.click();}
+function demoScript(){const b=$('briefBox');b.textContent='СЦЕНАРИЙ ДЕМО (5 минут)\n1. KPI сверху — состояние портфеля 500 (цвета, долг в зоне риска, обещания).\n2. Нажать «▶ План на сегодня» — агент идёт по графику; в логе видно ⚠ НОВОЕ и «дубли не создаются».\n3. Отчёт агента: базы, покрытие, кого не проверил, метрики пилота (время, precision, лаг).\n4. Очередь «Что делать сегодня» — выбрать клиента, WhatsApp/Telegram, «В работу» + обещание оплаты.\n5. Карточка клиента — событие со ссылкой на источник и жизненным циклом (Подтверждено/Закрыто).\n6. Вкладка «Оценка» (только риск-менеджер) — стандарт 5 C\'s, загрузка финки, PD/LGD/EL, лимит, заключение.\n7. «Журнал CSV» — аудит для юриста.';b.style.display='block';}
 
 /* ====== РОЛИ ====== */
 function scopedClients(){ if(role==='manager'&&manager) return DB.clients.filter(c=>c.user===manager); return DB.clients; }
@@ -747,7 +762,9 @@ function renderConc(){ const all=scopedClients(); const total=all.reduce((s,c)=>
 
 /* ====== WORK QUEUE ====== */
 const ACTION={red:'Позвонить + юридическая проверка',orange:'Напомнить об оплате, уточнить график',yellow:'Напомнить об оплате'};
-function renderQueue(){ const list=scopedClients().filter(c=>['red','orange','yellow'].includes(colorOf(c))).sort((a,b)=>severity(a)-severity(b)||b.debt-a.debt); $('queueSub').textContent=`${list.length} компаний требуют действия`+(role==='manager'&&manager?` · ${esc(manager)}`:''); const show=list.slice(0,25); $('queueBody').innerHTML=show.map(c=>{const col=colorOf(c);return `<div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;padding:7px 0;border-bottom:1px solid #eef1f4"><div><span class="dot ${col[0]}"></span><b style="font-size:12.5px">${esc(c.name)}</b><div style="color:var(--muted);font-size:11px">${esc(c.region)} · ${esc(c.user)} · DPD ${c.dpd||0} дн · долг ${mln(c.debt)}</div><div style="font-size:11.5px;margin-top:2px">${ACTION[col]}</div></div><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${contactButtons(c)}<button class="primary" onclick="decideClient(${c.id})" style="white-space:nowrap">В работу</button></div></div>`;}).join('')+(list.length>25?`<div style="color:var(--muted);font-size:11.5px;padding-top:6px">Показаны первые 25 из ${list.length}</div>`:''); }
+function renderQueue(){ const list=scopedClients().filter(c=>['red','orange','yellow'].includes(colorOf(c))).sort((a,b)=>severity(a)-severity(b)||b.debt-a.debt); $('queueSub').textContent=`${list.length} компаний требуют действия`+(role==='manager'&&manager?` · ${esc(manager)}`:''); const show=list.slice(0,25); $('queueBody').innerHTML=show.map(c=>{const col=colorOf(c);const pr=(DB.promises||[]).filter(p=>p.c===c.id&&p.status==='ожидается');const prHtml=pr.map(p=>`<div style="font-size:11.5px;margin-top:2px;color:${p.date<today()?'var(--red)':'var(--muted)'}">обещание до ${p.date} · ${mln(p.amount)} · ${p.date<today()?'⏳ не выполнено':'ожидается'}</div>`).join('');return `<div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;padding:7px 0;border-bottom:1px solid #eef1f4"><div><span class="dot ${col[0]}"></span><b style="font-size:12.5px">${esc(c.name)}</b><div style="color:var(--muted);font-size:11px">${esc(c.region)} · ${esc(c.user)} · DPD ${c.dpd||0} дн · долг ${mln(c.debt)}</div><div style="font-size:11.5px;margin-top:2px">${ACTION[col]}</div>${prHtml}</div><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${contactButtons(c)}${pr.length?`<button onclick="markPaid(${c.id})" style="white-space:nowrap">Оплачено</button>`:''}<button class="primary" onclick="decideClient(${c.id},'Подтверждено')" style="white-space:nowrap">В работу</button></div></div>`;}).join('')+(list.length>25?`<div style="color:var(--muted);font-size:11.5px;padding-top:6px">Показаны первые 25 из ${list.length}</div>`:''); }
+function addPromise(cid,date,amount){DB.promises=DB.promises||[];DB.promises.push({c:cid,date:date,amount:amount,status:'ожидается'});save();renderKPI();renderQueue();renderCard();}
+function markPaid(cid){(DB.promises||[]).forEach(p=>{if(p.c===cid&&p.status==='ожидается')p.status='выполнено';});DB.decisions.unshift({c:cid,t:nowStr(),by:(C(cid)||{}).user||'—',act:'Оплата получена',reason:'Обещание выполнено'});save();renderKPI();renderQueue();renderCard();renderJournal();}
 
 /* ====== NAV ====== */
 function setStage(s){if(s==='s2'&&role!=='risk')s='s1';stage=s;$('tab-s1').classList.toggle('active',s==='s1');$('tab-s2').classList.toggle('active',s==='s2');$('stage1').style.display=s==='s1'?'block':'none';$('stage2').style.display=s==='s2'?'block':'none';['monExtra1','monExtra2'].forEach(id=>{const el=$(id);if(el)el.style.display=(s==='s1')?'':'none';});}
